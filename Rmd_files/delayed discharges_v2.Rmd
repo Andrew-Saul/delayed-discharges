@@ -49,12 +49,12 @@ xl_file <- here::here("data", glue("{data_filename}.xlsx"))
 
 #create a single tibble containing both healthboard and LA data, as "Scotland" located in HB... sheets. Only "Scotland" kept from HB... sheets 
 # change format of FY (eg 1718)to year of start FY (2017)
-tib <- map_dfr(create_sheetname_vector(xl_file), # vector of LA and HB data from FY 12/13 until 21/22
+raw_tib <- map_dfr(create_sheetname_vector(xl_file), # vector of LA and HB data from FY 12/13 until 21/22
               ~create_FY_authority(xl_file, sheet_name = .x)) 
 
 ######################################################################################
 #create tibble with FY to date 
-tib_fytd <- tib %>% 
+tib_fytd <- raw_tib %>% 
   select("CouncilArea", "AgeGroup", "ComplexNeedsFlag", "FYToDate", "FY", "FY_begin") %>% 
   rename(Counts = FYToDate) %>% 
   add_GGC_field()
@@ -66,12 +66,12 @@ month_order <- c("April", "May", "June", "July", "August", "September",
                    "October", "November", "December", "January", "February",
                    "March")
 
-tib_FY_CA<- get_FY_CA_data(tib) %>% 
+tib_FY_CA<- get_FY_CA_data(raw_tib) %>% 
   add_GGC_field()
 
 ```
 
-```{r}
+```{r data}
 #############################
 #fydata is in format "yy/yy"#
 #############################
@@ -85,33 +85,86 @@ tib_FY_CA<- get_FY_CA_data(tib) %>%
 # Dec 2021 Code9 rates
 ############Scotland######################
 ## December 2021##
-get_group_bed_rates(tib_FY_CA, CNeeds_string = "Code 9",  fydate=2122, mon= "December", ggc_flag = FALSE, scot_flag = TRUE) %>% 
+scot_code9_mon <- get_group_bed_rates(tib_FY_CA, CNeeds_string = "Code 9",  fydate=2122, mon= "December", ggc_flag = FALSE, scot_flag = TRUE) %>% 
+  get_group_bedrate_value()
+
+scot_standard_mon <- get_group_bed_rates(tib_FY_CA, CNeeds_string = "Standard",  fydate=2122, mon= "December", ggc_flag = FALSE, scot_flag = TRUE) %>% 
   get_group_bedrate_value()
 
 ## up to Dec 2021 Scotland figures ##
-get_group_bed_rates(tib_fytd, CNeeds_string = "Code 9", fydate=2122, ggc_flag = FALSE, scot_flag = TRUE)  %>% 
+scot_code9_year_agg <- get_group_bed_rates(tib_fytd, CNeeds_string = "Code 9", fydate=2122, ggc_flag = FALSE, scot_flag = TRUE)  %>% 
+  get_group_bedrate_value()
+
+scot_standard_year_agg <- get_group_bed_rates(tib_fytd, CNeeds_string = "Standard", fydate=2122, ggc_flag = FALSE, scot_flag = TRUE)  %>% 
   get_group_bedrate_value()
 
 ################GGC group value#################
 ## Dec 2021 ##
-get_group_bed_rates(tib_FY_CA, CNeeds_string = "Code 9", fydate=2122,  mon = "December", ggc_flag = TRUE) %>% 
+ggc_code9_mon <- get_group_bed_rates(tib_FY_CA, CNeeds_string = "Code 9", fydate=2122,  mon = "December", ggc_flag = TRUE) %>% 
+  get_group_bedrate_value()
+
+ggc_standard_mon <- get_group_bed_rates(tib_FY_CA, CNeeds_string = "Standard", fydate=2122,  mon = "December", ggc_flag = TRUE) %>% 
   get_group_bedrate_value()
 
 ## up to Dec 2021 ##
-get_group_bed_rates(tib_fytd,  CNeeds_string = "Code 9", fydate=2122, ggc_flag = TRUE)  %>% 
+ggc_code9_year_agg <- get_group_bed_rates(tib_fytd,  CNeeds_string = "Code 9", fydate=2122, ggc_flag = TRUE)  %>% 
   get_group_bedrate_value()
 
+ggc_standard_year_agg <- get_group_bed_rates(tib_fytd,  CNeeds_string = "Standard", fydate=2122, ggc_flag = TRUE)  %>% 
+  get_group_bedrate_value()
 ######## All Council Areas ################################################
 ## December ##
- get_group_bed_rates(tib_FY_CA, CNeeds_string = "Code 9", fydate=2122, mon = "December")
+tib_code9_mon <- get_group_bed_rates(tib_FY_CA, CNeeds_string = "Code 9", fydate=2122, mon = "December") %>% 
+  filter(CouncilArea != "Scotland")
+
+tib_standard_mon <- get_group_bed_rates(tib_FY_CA, CNeeds_string = "Standard", fydate=2122, mon = "December") %>% 
+  filter(CouncilArea != "Scotland")
 
 ## up to Dec FY##
-get_group_bed_rates(tib_fytd, CNeeds_string ="Code 9", fydate=2122)
+tib_code9_yearagg <- get_group_bed_rates(tib_fytd, CNeeds_string ="Code 9", fydate=2122) %>% 
+  filter(CouncilArea != "Scotland")
+
+tib_standard_yearagg <- get_group_bed_rates(tib_fytd, CNeeds_string ="Standard", fydate=2122) %>% 
+  filter(CouncilArea != "Scotland")
+
+```
+
+```{r currentplots}
+
+create_plot <- function(tib, CNeeds_string, fydate){
+  
+  mon <- tib %>% slice(1) %>% select(Months) %>% pull() %>% as.character()
+  FYear <- seperate_years_by_slash(fydate)
+  ggplot(tib, aes(x=reorder(CouncilArea, Rate), y=Rate, fill = GGCRegion))+
+    geom_col()+
+    geom_text(aes(label = format(signif(as.integer(Rate,3)))), hjust = 1, colour = "white") +
+    scale_fill_manual(name= "GGC Area", values =c("#0078D4", "#83bb26"))+
+    guides(fill = guide_legend(reverse=TRUE))+
+    coord_flip()+
+    labs(title = str_wrap(glue("{mon} FY({FYear}) – {CNeeds_string} Delays : Rate per 100,000 Population")),
+           y = str_wrap("Bed Days Rate (Per 100,000 Population)"),
+           x= "")+
+      #guides(linetype = guide_legend(order = 2), fill = guide_legend(order = 1), color = guide_legend(order = 1))+
+      theme_set(theme_minimal(base_size = 12, base_family = "Open Sans"))+
+      theme_update(
+        axis.ticks = element_line(color = "grey92"),
+        axis.ticks.length = unit(.5, "lines"),
+        panel.grid.minor = element_blank(),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(color = "grey30"),
+        plot.title = element_text(size = 18, face = "bold"),
+        plot.subtitle = element_text(size = 12, color = "grey30"),
+        plot.caption = element_text(size = 9, margin = margin(t = 15))
+      )
+    
+  
+}
 
 ```
 
 
-```{r}
+
+```{r prev5yr}
 #Previous 5 year data excluding year 2021
 #Vector of Council Areas
 CA_names <- get_council_area_names(tib_FY_CA) # all regions

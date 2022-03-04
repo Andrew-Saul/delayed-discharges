@@ -79,6 +79,12 @@ convert_FY_to_calender <- function(tib){
     mutate(FY_begin = as.numeric(glue("20{FY_begin}")) ) # adds "20" in front of <suffix year>. Converts to numeric
 }
 
+seperate_years_by_slash <- function(number){
+  split_year <- number %>% 
+   str_sub(c(1,3), c(2,4))
+  
+  paste0(split_year, collapse = "/")
+}
 # convert_calender_to_FY <- function(calyear){
 #   first_year <- str_sub(calyear, -2, -1) %>%  as.numeric() # extract last 2 digits from cal year into <first year>
 #   glue("{first_year}{first_year+1}") 
@@ -275,7 +281,9 @@ create_5yr_plot <- function(tibble_name = all_rates, index=NULL, CNeeds_string) 
   FY_label <- tibble_name[[index]] %>% 
     select(Current_FY) %>% 
     distinct() %>% 
-    pull()
+    pull() %>% 
+    seperate_years_by_slash()
+    
   
     static_p <- 
     ggplot(data=tibble_name[[index]], aes(group=1))+
