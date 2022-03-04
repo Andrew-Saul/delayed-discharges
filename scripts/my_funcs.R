@@ -110,7 +110,17 @@ tempdf
 
 
 #######################################################################################
+#adds a field to tibbles that indicates if CA is in CGG Region (TRUE/FALSE)
+add_cgg_field <- function(df){
+  
+  ggc_hcsps <- c("East Dunbartonshire", "East Renfrewshire", "Glasgow City", "Inverclyde",
+                 "Renfrewshire", "West Dunbartonshire")
+  
+  df %>% 
+    mutate(CGGRegion = if_else(CouncilArea %in% ggc_hcsps, TRUE, FALSE))
+}
 
+# converts monthly data into long format
 get_FY_CA_data <- function(tib) {
   tib %>%
     select(-c("FYToDate")) %>% 
@@ -123,10 +133,10 @@ get_FY_CA_data <- function(tib) {
 
 
 
-#get bed rates (per 100,000) for each region, year or Month/year.
+#get bed rates (per 100,000) for each region, year or Month/year as well as member of CCGRegion.
 # Rates dependent on pop of that specific year!
 # enter tibble, and element of ComplexNeedsFlag
-get_CA_bed_rates <- function(tib1, CNeeds_string, mon=NULL, fydate) {
+get_CA_bed_rates <- function(tib1, CNeeds_string, fydate, mon=NULL) {
   tib1 <- tib1 %>% 
     filter(ComplexNeedsFlag == CNeeds_string) %>% 
     filter(FY %in% fydate)# %>% 
@@ -136,14 +146,14 @@ get_CA_bed_rates <- function(tib1, CNeeds_string, mon=NULL, fydate) {
       tib1 %>% filter(Months %in% mon) %>% 
         # mutate(Months = factor(Months, levels = c(month_order, ordered = TRUE))) %>% 
         left_join(LA_pop_18plus, by = c("CouncilArea", "FY_begin" = "year")) %>%
-        group_by(CouncilArea, FY, Months) %>% 
+        group_by(CouncilArea, FY, Months, CGGRegion) %>% 
         drop_na() %>% 
         summarise(Counts = sum(Counts), Pop = mean(Pop), .groups = "drop") %>% 
         mutate(Rate = Counts/Pop *100000)
     } 
   else {
     left_join(tib1, LA_pop_18plus, by = c("CouncilArea", "FY_begin" = "year")) %>% 
-        group_by(CouncilArea, FY) %>% 
+        group_by(CouncilArea, FY, CGGRegion) %>% 
         drop_na() %>% 
         summarise(Counts = sum(Counts), Pop = mean(Pop), .groups = "drop") %>% 
         
@@ -156,21 +166,38 @@ get_CA_bed_rates <- function(tib1, CNeeds_string, mon=NULL, fydate) {
 #requires "get_CA_bed_rates" function
 get_group_bed_rates <- function(..., ggc_flag = FALSE, scot_flag = FALSE){
 
-  ggc_hcsps <- c("East Dunbartonshire", "East Renfrewshire", "Glasgow City", "Inverclyde",
-                 "Renfrewshire", "West Dunbartonshire")
-
   if (scot_flag == TRUE) {
     get_CA_bed_rates(...) %>%
       filter(CouncilArea == "Scotland")
+    
   } else if (ggc_flag == TRUE ){
-    get_CA_bed_rates(...) %>%
-      filter(CouncilArea %in% ggc_hcsps) %>%
+    
+    arglist <- list(...)
+    
+    df <- arglist[[1]] %>% 
+      filter(CGGRegion == TRUE)
+    
+    #default value of mon = NULL for CA_bed_rate function, in case looking at upto FY rates
+    if(length(arglist) == 4){
+      mon=arglist[[4]]
+    } else {
+      mon=NULL
+    }
+   
+
+    get_CA_bed_rates(df, CNeeds_string=arglist[[2]], fydate=arglist[[3]], mon) %>%
+
       summarise(Counts = sum(Counts), Pop = sum(Pop)) %>%
-      mutate(Rate = Counts/Pop *100000) %>% 
-      mutate(CouncilArea = "GGC HSCPs") 
+      mutate(Rate = Counts/Pop *100000) 
 
   } else get_CA_bed_rates(...)
 
+}
+
+get_group_bedrate_value <- function(df){
+  df %>% 
+    select(Rate) %>% 
+    pull()
 }
 
 #################################################################################

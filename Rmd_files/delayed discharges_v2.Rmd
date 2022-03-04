@@ -56,7 +56,8 @@ tib <- map_dfr(create_sheetname_vector(xl_file), # vector of LA and HB data from
 #create tibble with FY to date 
 tib_fytd <- tib %>% 
   select("CouncilArea", "AgeGroup", "ComplexNeedsFlag", "FYToDate", "FY", "FY_begin") %>% 
-  rename(Counts = FYToDate)
+  rename(Counts = FYToDate) %>% 
+  add_cgg_field()
 
 ######################################################################################
 #create tibble with Month/Year Counts
@@ -65,7 +66,8 @@ month_order <- c("April", "May", "June", "July", "August", "September",
                    "October", "November", "December", "January", "February",
                    "March")
 
-tib_FY_CA<- get_FY_CA_data(tib) 
+tib_FY_CA<- get_FY_CA_data(tib) %>% 
+  add_cgg_field()
 
 ```
 
@@ -83,21 +85,25 @@ tib_FY_CA<- get_FY_CA_data(tib)
 # Dec 2021 Code9 rates
 ############Scotland######################
 ## December 2021##
-get_group_bed_rates(tib_FY_CA, CNeeds_string = "Code 9",  mon= "December", fydate=2122, ggc_flag = FALSE, scot_flag = TRUE) 
+get_group_bed_rates(tib_FY_CA, CNeeds_string = "Code 9",  fydate=2122, mon= "December", ggc_flag = FALSE, scot_flag = TRUE) %>% 
+  get_group_bedrate_value()
 
 ## up to Dec 2021 Scotland figures ##
-get_group_bed_rates(tib_fytd, CNeeds_string = "Code 9", fydate=2122, ggc_flag = FALSE, scot_flag = TRUE) 
+get_group_bed_rates(tib_fytd, CNeeds_string = "Code 9", fydate=2122, ggc_flag = FALSE, scot_flag = TRUE)  %>% 
+  get_group_bedrate_value()
 
 ################GGC group value#################
 ## Dec 2021 ##
-get_group_bed_rates(tib_FY_CA, CNeeds_string = "Code 9", mon = "December", fydate=2122, ggc_flag = TRUE)
+get_group_bed_rates(tib_FY_CA, CNeeds_string = "Code 9", fydate=2122,  mon = "December", ggc_flag = TRUE) %>% 
+  get_group_bedrate_value()
 
 ## up to Dec 2021 ##
-get_group_bed_rates(tib_fytd, "Code 9", fydate=2122, ggc_flag = TRUE)
+get_group_bed_rates(tib_fytd,  CNeeds_string = "Code 9", fydate=2122, ggc_flag = TRUE)  %>% 
+  get_group_bedrate_value()
 
 ######## All Council Areas ################################################
 ## December ##
-get_group_bed_rates(tib_FY_CA, CNeeds_string = "Code 9", mon = "December", fydate=2122)
+get_group_bed_rates(tib_FY_CA, CNeeds_string = "Code 9", fydate=2122, mon = "December")
 
 ## up to Dec FY##
 get_group_bed_rates(tib_fytd, "Code 9", fydate=2122)
