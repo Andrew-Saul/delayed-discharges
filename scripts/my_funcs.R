@@ -60,8 +60,7 @@ get_sheetnames <- function(xl_file, sheet_names, pattern_string) {
   sheet_names[str_detect(sheet_names, pattern = pattern_string)]  
 }
 
-# create vector of sheet names from which data is required 
-# Only required if investigating "HBData" sheets as well
+# create vector of sheet names acquired from each sheet in Excel file 
 
 # requires "get_sheetnames" function
 create_sheetname_vector <-   function(xl_file = xl_file) {
@@ -92,21 +91,20 @@ convert_FY_to_calender <- function(tib){
 #requires "convert_FY_to_calender" function
 create_FY_authority <- function(xl_file, sheet_name) {
   df<- read_excel(xl_file, sheet = sheet_name, range = "B1:U497")
-  FY_var <- str_extract(sheet_name, pattern = "\\d+")
+  FY_var <- str_extract(sheet_name, pattern = "\\d+") #extracts FY from sheetname eg 1718
   tempdf <- df %>% 
-    select(-starts_with("Q")) %>% 
+    select(-starts_with("Q")) %>% #removes quarter year fields
     rename(FYToDate = starts_with("FY_")) %>% 
-  #  mutate(Authority = if_else(str_detect(sheet_name, "HBData"), "HB", "LA")) %>% 
-    drop_na(AgeGroup) %>% #discard these empty rows
-    mutate(FY = as.numeric(FY_var)) %>% 
-    rename(CouncilArea = 1) %>% 
+    drop_na(AgeGroup) %>% #discard these empty rows (if AgeGroup empty then entire row empty)
+    mutate(FY = as.integer(FY_var)) %>% #create FY field with integer value FY_var eg 1718
+    rename(CouncilArea = 1) %>%  # rename 1st column "CouncilArea"
     convert_FY_to_calender() %>% 
     filter(AgeGroup == "All") 
  # if Health Board, only keeps Scotland element 
   if(str_detect(sheet_name, "HBD")){
    tempdf <-  tempdf %>% 
       filter(CouncilArea == "Scotland")
-  } # if
+  } # end if
 tempdf
 }
 
@@ -153,7 +151,7 @@ get_CA_bed_rates <- function(tib1, CNeeds_string, mon=NULL, fydate) {
   }
 }
 
-# gets bedrates for CCG Area or  Scotland
+# gets bedrates for CCG Area, Scotland or all CAs (default)
 
 #requires "get_CA_bed_rates" function
 get_group_bed_rates <- function(..., ggc_flag = FALSE, scot_flag = FALSE){
@@ -167,9 +165,10 @@ get_group_bed_rates <- function(..., ggc_flag = FALSE, scot_flag = FALSE){
   } else if (ggc_flag == TRUE ){
     get_CA_bed_rates(...) %>%
       filter(CouncilArea %in% ggc_hcsps) %>%
-      select(-c(FY)) %>%
       summarise(Counts = sum(Counts), Pop = sum(Pop)) %>%
-      mutate(Rate = Counts/Pop *100000)
+      mutate(Rate = Counts/Pop *100000) %>% 
+      mutate(CouncilArea = "GGC HSCPs") 
+
   } else get_CA_bed_rates(...)
 
 }
@@ -183,34 +182,94 @@ get_council_area_names <- function(tib){
     pull()
 }
 
-#get_prev5 selects last 6 years but excludes year 2021 . assumes earliest current year is 21
-get_prev5 <- function(tib, CA, CNeeds_string, fydate){
-  tib %>% 
-    mutate(prev5_flag = ifelse(fydate - FY <607 & fydate - FY > 0 & fydate!= 2021, TRUE, FALSE)) %>% 
+get_minmax_rates <- function(df, pop_objfile){
+  df %>% 
+    left_join(pop_objfile, by = c("CouncilArea", "FY_begin" = "year" )) %>% 
+    mutate(Rate = 100000*Counts/Pop) %>% 
+    group_by(Months) %>% 
+    summarise(Min_rate = min(Rate), Max_rate = max(Rate))
+}
+
+get_avg_rate <- function(df, pop_objfile=LA_pop_18plus){
+
+  #calculates Avg counts for each Month for each CA and ComplexNeed
+  df %>% 
+    left_join(pop_objfile, by = c("CouncilArea", "FY_begin" = "year" )) %>% 
+    group_by(Months) %>% 
+    summarise(Avg_rate = 100000*sum(Counts)/sum(Pop))
+}
+
+#get_prev5 selects last 6 years but excludes FY 20/21 . assumes earliest current year is 21
+get_rates <- function(tib, CA, CNeeds_string, fydate, pop_objfile=LA_pop_18plus){
+  prev5_tib <- tib %>% 
+    mutate(prev5_flag = ifelse((FY %in% 2021 | FY - fydate < -606 | FY - fydate >=0), FALSE, TRUE)) %>% 
     filter(prev5_flag==TRUE) %>% 
     select(!prev5_flag) %>% 
     filter(ComplexNeedsFlag == CNeeds_string) %>% 
-    filter(CouncilArea == CA) %>% 
-    group_by(Months) %>% 
-    summarise(Min_value = min(Counts), Max_value = max(Counts), Avg = mean(Counts), .groups = "drop")
-}
-
-
-get_current_year_tib <- function(tib, CA, CNeeds_string, fydate){
-  tib %>% 
+    filter(CouncilArea == CA) 
+  
+  min_max_rate <- get_minmax_rates(prev5_tib, pop_objfile)
+  avg_rate <- get_avg_rate(prev5_tib, pop_objfile)
+  
+  #join min, max, avg tibbles together and rename to prev5_rate. Remove min_max name
+  min_max_rate <- left_join(min_max_rate, avg_rate, by = "Months") 
+  prev5_rate <- min_max_rate
+  rm(min_max_rate)
+  
+  #create current rates, join with prev5 year rates
+   current_rate <- 
+     tib %>% 
     filter(ComplexNeedsFlag == CNeeds_string) %>% 
     filter(FY %in% fydate) %>% 
     filter(CouncilArea == CA) %>% 
-    drop_na(Counts)
+    drop_na(Counts) %>% 
+    get_avg_rate(.,pop_objfile) %>% 
+    rename(Current_rate = Avg_rate) 
+    
+   left_join(prev5_rate, current_rate, by = "Months") %>% 
+      mutate(Current_FY = fydate)
+  
 }
 
 
-create_5yr_plot <- function(dat1, dat2) {
-  ggplot(data=dat1, aes(x=Months,group=1))+
-    geom_ribbon(aes(ymin = Min_value, ymax=Max_value), fill = "grey70")+
-    geom_line(aes(y=Avg), linetype = "dashed")+
-    geom_line(data = dat2, aes(y=Counts), group = 1)
-} 
-#############################################################################
-########### Population data###################################################
-# #########################################################################
+# get_current_year_tib <- function(tib, CA, CNeeds_string, fydate, pop_objfile=LA_pop_18plus){
+#   tib %>% 
+#     filter(ComplexNeedsFlag == CNeeds_string) %>% 
+#     filter(FY %in% fydate) %>% 
+#     filter(CouncilArea == CA) %>% 
+#     drop_na(Counts) %>% 
+#     get_avg_rate(.,pop_objfile) %>% 
+#     rename(Current_rate = Avg_rate)
+# }
+
+
+create_5yr_plot <- function(df) {
+  #extract current FY from df
+  FY_label <- df %>% 
+    select(Current_FY) %>% 
+    distinct() %>% 
+    pull()
+  
+
+  static_p <- 
+    ggplot(data=df, aes(group=1))+
+    geom_ribbon(aes(ymin = Min_rate, ymax=Max_rate, x= Months, fill = "Prev Min-Max"))+
+    geom_line(aes(x= Months, y=Avg_rate, colour = "Avg Value"),  linetype = "dashed")+
+    geom_line(aes(x= Months, y=Current_rate, colour = "current"))+
+    scale_linetype_discrete(labels = c(current = glue("FY = {FY_label}")))+
+    # the labels must match what you specified above
+    scale_fill_manual(name = "", values = c("Prev Min-Max" = "grey")) +
+    
+    scale_color_manual(name = "", labels = c("Prev 5yr Avg", glue("FY = {FY_label}")), values = c("blue", "green"))+
+    #guides(linetype = guide_legend(order = 2), fill = guide_legend(order = 1), color = guide_legend(order = 1))+
+    theme(legend.title=element_blank()) 
+    
+  interactive_p <- ggplotly()
+  interactive_p
+  ## Needs title/y-axis label###########
+  ######################################
+}
+# #############################################################################
+# ########### Population data###################################################
+# # #########################################################################
+
