@@ -17,7 +17,7 @@ if(!require(librarian)){
   library(librarian)
 }
 
-librarian::shelf(tidyverse, here, fs, rvest ,xml2, openxlsx, lubridate, readxl, janitor, glue, rlang, phsstyles)
+librarian::shelf(tidyverse, here, fs, rvest ,xml2, openxlsx, lubridate, readxl, janitor, glue, rlang, plotly)
 source(here::here("scripts", "my_funcs.R"))
 source(here::here("scripts", "populations.R"))
 ```
@@ -57,7 +57,7 @@ tib <- map_dfr(create_sheetname_vector(xl_file), # vector of LA and HB data from
 tib_fytd <- tib %>% 
   select("CouncilArea", "AgeGroup", "ComplexNeedsFlag", "FYToDate", "FY", "FY_begin") %>% 
   rename(Counts = FYToDate) %>% 
-  add_cgg_field()
+  add_GGC_field()
 
 ######################################################################################
 #create tibble with Month/Year Counts
@@ -67,7 +67,7 @@ month_order <- c("April", "May", "June", "July", "August", "September",
                    "March")
 
 tib_FY_CA<- get_FY_CA_data(tib) %>% 
-  add_cgg_field()
+  add_GGC_field()
 
 ```
 
@@ -103,10 +103,10 @@ get_group_bed_rates(tib_fytd,  CNeeds_string = "Code 9", fydate=2122, ggc_flag =
 
 ######## All Council Areas ################################################
 ## December ##
-get_group_bed_rates(tib_FY_CA, CNeeds_string = "Code 9", fydate=2122, mon = "December")
+ get_group_bed_rates(tib_FY_CA, CNeeds_string = "Code 9", fydate=2122, mon = "December")
 
 ## up to Dec FY##
-get_group_bed_rates(tib_fytd, "Code 9", fydate=2122)
+get_group_bed_rates(tib_fytd, CNeeds_string ="Code 9", fydate=2122)
 
 ```
 
@@ -123,6 +123,6 @@ all_rates <- map(CA_names, ~get_rates(tib=tib_FY_CA, CA= .x, CNeeds_string = "Co
 
 map(all_rates, create_5yr_plot)
 
-all_rates[[1]] %>% select(Months) %>% unique()
+create_5yr_plot(all_rates, index=1, CNeeds_string ="Code 9")
 ```
 

@@ -110,14 +110,14 @@ tempdf
 
 
 #######################################################################################
-#adds a field to tibbles that indicates if CA is in CGG Region (TRUE/FALSE)
-add_cgg_field <- function(df){
+#adds a field to tibbles that indicates if CA is in GGC Region (TRUE/FALSE)
+add_GGC_field <- function(df){
   
   ggc_hcsps <- c("East Dunbartonshire", "East Renfrewshire", "Glasgow City", "Inverclyde",
                  "Renfrewshire", "West Dunbartonshire")
   
   df %>% 
-    mutate(CGGRegion = if_else(CouncilArea %in% ggc_hcsps, TRUE, FALSE))
+    mutate(GGCRegion = if_else(CouncilArea %in% ggc_hcsps, TRUE, FALSE))
 }
 
 # converts monthly data into long format
@@ -130,8 +130,12 @@ get_FY_CA_data <- function(tib) {
     summarise(Counts = sum(Counts), .groups = "drop") 
 }
 
-
-
+#Extract Rate field row as single value
+get_group_bedrate_value <- function(df){
+  df %>% 
+    select(Rate) %>% 
+    pull()
+}
 
 #get bed rates (per 100,000) for each region, year or Month/year as well as member of CCGRegion.
 # Rates dependent on pop of that specific year!
@@ -146,14 +150,14 @@ get_CA_bed_rates <- function(tib1, CNeeds_string, fydate, mon=NULL) {
       tib1 %>% filter(Months %in% mon) %>% 
         # mutate(Months = factor(Months, levels = c(month_order, ordered = TRUE))) %>% 
         left_join(LA_pop_18plus, by = c("CouncilArea", "FY_begin" = "year")) %>%
-        group_by(CouncilArea, FY, Months, CGGRegion) %>% 
+        group_by(CouncilArea, FY, Months, GGCRegion) %>% 
         drop_na() %>% 
         summarise(Counts = sum(Counts), Pop = mean(Pop), .groups = "drop") %>% 
         mutate(Rate = Counts/Pop *100000)
     } 
   else {
     left_join(tib1, LA_pop_18plus, by = c("CouncilArea", "FY_begin" = "year")) %>% 
-        group_by(CouncilArea, FY, CGGRegion) %>% 
+        group_by(CouncilArea, FY, GGCRegion) %>% 
         drop_na() %>% 
         summarise(Counts = sum(Counts), Pop = mean(Pop), .groups = "drop") %>% 
         
@@ -175,7 +179,7 @@ get_group_bed_rates <- function(..., ggc_flag = FALSE, scot_flag = FALSE){
     arglist <- list(...)
     
     df <- arglist[[1]] %>% 
-      filter(CGGRegion == TRUE)
+      filter(GGCRegion == TRUE)
     
     #default value of mon = NULL for CA_bed_rate function, in case looking at upto FY rates
     if(length(arglist) == 4){
@@ -190,15 +194,11 @@ get_group_bed_rates <- function(..., ggc_flag = FALSE, scot_flag = FALSE){
       summarise(Counts = sum(Counts), Pop = sum(Pop)) %>%
       mutate(Rate = Counts/Pop *100000) 
 
-  } else get_CA_bed_rates(...)
+  } else get_CA_bed_rates(...) 
 
 }
 
-get_group_bedrate_value <- function(df){
-  df %>% 
-    select(Rate) %>% 
-    pull()
-}
+
 
 #################################################################################
 
@@ -238,10 +238,9 @@ get_rates <- function(tib, CA, CNeeds_string, fydate, pop_objfile=LA_pop_18plus)
   min_max_rate <- get_minmax_rates(prev5_tib, pop_objfile)
   avg_rate <- get_avg_rate(prev5_tib, pop_objfile)
   
-  #join min, max, avg tibbles together and rename to prev5_rate. Remove min_max name
+  #join min, max, avg tibbles together and rename to prev5_rate
   min_max_rate <- left_join(min_max_rate, avg_rate, by = "Months") 
   prev5_rate <- min_max_rate
-  rm(min_max_rate)
   
   #create current rates, join with prev5 year rates
    current_rate <- 
@@ -254,7 +253,8 @@ get_rates <- function(tib, CA, CNeeds_string, fydate, pop_objfile=LA_pop_18plus)
     rename(Current_rate = Avg_rate) 
     
    left_join(prev5_rate, current_rate, by = "Months") %>% 
-      mutate(Current_FY = fydate)
+      mutate(Current_FY = fydate) %>% 
+     mutate(Months = factor(Months, labels = c("Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar")))
   
 }
 
@@ -270,32 +270,50 @@ get_rates <- function(tib, CA, CNeeds_string, fydate, pop_objfile=LA_pop_18plus)
 # }
 
 
-create_5yr_plot <- function(df) {
+create_5yr_plot <- function(tibble_name = all_rates, index=NULL, CNeeds_string) {
   #extract current FY from df
-  FY_label <- df %>% 
+  FY_label <- tibble_name[[index]] %>% 
     select(Current_FY) %>% 
     distinct() %>% 
     pull()
   
-
-  static_p <- 
-    ggplot(data=df, aes(group=1))+
+    static_p <- 
+    ggplot(data=tibble_name[[index]], aes(group=1))+
     geom_ribbon(aes(ymin = Min_rate, ymax=Max_rate, x= Months, fill = "Prev Min-Max"))+
     geom_line(aes(x= Months, y=Avg_rate, colour = "Avg Value"),  linetype = "dashed")+
     geom_line(aes(x= Months, y=Current_rate, colour = "current"))+
-    scale_linetype_discrete(labels = c(current = glue("FY = {FY_label}")))+
+    #scale_linetype_discrete(labels = c(current = glue("FY = {FY_label}")))+
     # the labels must match what you specified above
-    scale_fill_manual(name = "", values = c("Prev Min-Max" = "grey")) +
+    scale_fill_manual(name = "", labels = c("Prev Min-Max"), values = c("Prev Min-Max" = "grey"), breaks = "Prev Min-Max") +
     
-    scale_color_manual(name = "", labels = c("Prev 5yr Avg", glue("FY = {FY_label}")), values = c("blue", "green"))+
-    #guides(linetype = guide_legend(order = 2), fill = guide_legend(order = 1), color = guide_legend(order = 1))+
-    theme(legend.title=element_blank()) 
+    scale_color_manual(name = "", labels = c("Prev 5yr Avg", glue("FY = {FY_label}")), values = c("blue", "green"), breaks = c("Avg Value", "current"))+
+      
+      labs(title = str_wrap(glue("{names(tibble_name[index])} : Monthly Bed Days Rate (per 100,000) with Previous 5-Year Average Comparison (2015/16-2019/20) - {CNeeds_string} ")),
+           y = str_wrap("Delayed Discharge Bed Days Rate (per 100,000 population)", width = 30),
+           x= "")+
+      #guides(linetype = guide_legend(order = 2), fill = guide_legend(order = 1), color = guide_legend(order = 1))+
+      theme_set(theme_minimal(base_size = 12, base_family = "Open Sans"))+
+      theme_update(
+        axis.ticks = element_line(color = "grey92"),
+        axis.ticks.length = unit(.5, "lines"),
+        panel.grid.minor = element_blank(),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(color = "grey30"),
+        plot.title = element_text(size = 18, face = "bold"),
+        plot.subtitle = element_text(size = 12, color = "grey30"),
+        plot.caption = element_text(size = 9, margin = margin(t = 15))
+      )+
+      theme(legend.position = "top")
+        theme(legend.title=element_blank()) 
     
-  interactive_p <- ggplotly()
-  interactive_p
+  static_p
+  
   ## Needs title/y-axis label###########
   ######################################
 }
+
+
+
 # #############################################################################
 # ########### Population data###################################################
 # # #########################################################################
