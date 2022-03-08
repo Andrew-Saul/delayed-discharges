@@ -138,22 +138,29 @@ get_FY_CA_data <- function(tib) {
 
 #Extract Rate field row as single value
 get_group_bedrate_value <- function(df){
-  df %>% 
+  value <- df %>% 
     select(Rate) %>% 
+#    mutate(Rate = format(round(Rate,1))) %>% 
+    pull() 
+  title <- df %>% 
+    select(Rate) %>%
+    mutate(Rate = format(round(Rate,1))) %>% 
     pull()
+  
+  list(value, title)
 }
 
 #get bed rates (per 100,000) for each region, year or Month/year as well as member of CCGRegion.
 # Rates dependent on pop of that specific year!
 # enter tibble, and element of ComplexNeedsFlag
-get_CA_bed_rates <- function(tib1, CNeeds_string, fydate, mon=NULL) {
-  tib1 <- tib1 %>% 
+get_CA_bed_rates <- function(tib, CNeeds_string, fydate, mon=NULL) {
+  tib <- tib %>% 
     filter(ComplexNeedsFlag == CNeeds_string) %>% 
     filter(FY %in% fydate)# %>% 
     #filter(CouncilArea != "Other") 
     
     if (!is.null(mon)){
-      tib1 %>% filter(Months %in% mon) %>% 
+      tib %>% filter(Months %in% mon) %>% 
         # mutate(Months = factor(Months, levels = c(month_order, ordered = TRUE))) %>% 
         left_join(LA_pop_18plus, by = c("CouncilArea", "FY_begin" = "year")) %>%
         group_by(CouncilArea, FY, Months, GGCRegion) %>% 
@@ -162,7 +169,7 @@ get_CA_bed_rates <- function(tib1, CNeeds_string, fydate, mon=NULL) {
         mutate(Rate = Counts/Pop *100000)
     } 
   else {
-    left_join(tib1, LA_pop_18plus, by = c("CouncilArea", "FY_begin" = "year")) %>% 
+    left_join(tib, LA_pop_18plus, by = c("CouncilArea", "FY_begin" = "year")) %>% 
         group_by(CouncilArea, FY, GGCRegion) %>% 
         drop_na() %>% 
         summarise(Counts = sum(Counts), Pop = mean(Pop), .groups = "drop") %>% 
@@ -179,33 +186,96 @@ get_group_bed_rates <- function(..., ggc_flag = FALSE, scot_flag = FALSE){
   if (scot_flag == TRUE) {
     get_CA_bed_rates(...) %>%
       filter(CouncilArea == "Scotland")
-    
+
   } else if (ggc_flag == TRUE ){
-    
+
     arglist <- list(...)
-    
-    df <- arglist[[1]] %>% 
+
+    arglist[[1]] <- arglist[[1]] %>%
       filter(GGCRegion == TRUE)
-    
+
     #default value of mon = NULL for CA_bed_rate function, in case looking at upto FY rates
     if(length(arglist) == 4){
       mon=arglist[[4]]
-    } else {
+    } else if (length(arglist) == 3) {
       mon=NULL
+    } else {
+      #message("arglist in function get_group_bed_rates = ", length(arglist))
     }
+
+    
+ do.call(get_CA_bed_rates, arglist) %>% 
+   group_by(GGCRegion) %>% 
+  summarise(Counts = sum(Counts), Pop = sum(Pop)) %>%
+  mutate(Rate = Counts/Pop *100000) 
+   
+#   # get_CA_bed_rates(tib, CNeeds_string=arglist[[2]], fydate=arglist[[3]], mon) %>% 
+#       summarise(Counts = sum(Counts), Pop = sum(Pop)) %>%
+#       mutate(Rate = Counts/Pop *100000)
    
 
-    get_CA_bed_rates(df, CNeeds_string=arglist[[2]], fydate=arglist[[3]], mon) %>%
-
-      summarise(Counts = sum(Counts), Pop = sum(Pop)) %>%
-      mutate(Rate = Counts/Pop *100000) 
-
-  } else get_CA_bed_rates(...) 
+   # message(str(arglist))
+  } else get_CA_bed_rates(...)
 
 }
 
+## plot of rates for all CAs
+create_CArate_plot <- function(df, CNeeds_string, fydate, mon, ggc_rate, scot_rate){
 
+  
+  if (is.null(mon)){
+    mon_title <- c("Financial Year to Date")
+    FYear_title <- seperate_years_by_slash(fydate)
+    } else {# CORRECT THIS WHERE MONTHS DONT EXiST!!!!!!!!!
+      mon_value <- df %>% slice(1) %>% select(Months) %>% pull() %>% as.character()
+      mon_title <- c(glue("{mon_value} "))
+      FYear_title <- seperate_years_by_slash(fydate)
+      # FYear_title <- df %>% slice(1) %>% convert_FY_to_calender () %>% select(FY_begin) %>% pull()
+      # 
+      #   if (mon %in% c("January", "February", "March")){
+      #     FYear_title = FYear_title + 1
+      #     
+      #   }
+  }
+  
+p <-   ggplot(df, aes(x=reorder(CouncilArea, Rate), y=Rate, fill = GGCRegion))+
+    geom_col(show.legend = FALSE)+
+    geom_text(aes(label = format(signif(as.integer(Rate,3)))), hjust = 1, colour = "white") +
+    scale_fill_manual(name= "GGC Area", values =c("#3393dd", "#9cc951"))+
+    guides(fill = guide_legend(reverse=TRUE))+
+    geom_hline(yintercept=scot_rate[[1]], color = "#3f3685")+
+    geom_hline(yintercept=ggc_rate[[1]], color = "#83bb26")+
+    coord_flip()+
+    labs(title = str_wrap(glue("{mon_title} ({FYear_title}) – {CNeeds_string} Delays : Rate per 100,000 Population")),
+         y = str_wrap("Bed Days Rate (Per 100,000 Population)"),
+         x= "")+
+    #guides(linetype = guide_legend(order = 2), fill = guide_legend(order = 1), color = guide_legend(order = 1))+
+    theme_set(theme_minimal(base_size = 12, base_family = "Open Sans"))+
+    theme_update(
+      axis.ticks = element_line(color = "grey92"),
+      axis.ticks.length = unit(.5, "lines"),
+      panel.grid.minor = element_blank(),
+      legend.position = "none",
+     # legend.title = element_text(size = 12),
+      #legend.text = element_text(color = "grey30"),
+      plot.title = element_text(size = 18, face = "bold"),
+      plot.subtitle = element_text(size = 12, color = "grey30"),
+      plot.caption = element_text(size = 9, margin = margin(t = 15))
+    )
 
+      if (is.null(mon)){
+      #  p <-  p + annotate("text", label = str_wrap(glue("{scot_rate[[2]]} Scotland"), width = 10), x = 2, y = (scot_rate[[1]]-350), color = "#665e9d", size = 3.5)+
+       #   annotate("text", label = str_wrap(glue("{ggc_rate[[2]]} GGC_HSCPs"), width = 10), x = 2, y = ggc_rate[[1]]+350, color = "#9cc951", size = 3.5)
+        p <- p + geom_richtext(aes(x = 2, y = (scot_rate[[1]]), label = glue("**{scot_rate[[2]]} <br> Scotland**")),  color = "white", fill = "#665e9d", size = 3.5) +
+          geom_richtext(aes(x = 2, y = (ggc_rate[[1]]), label = glue("**{ggc_rate[[2]]} <br> GGC_HSCPs**")),  color = "black", fill = "#9cc951", size = 3.5) 
+      } else {
+        p <- p + geom_richtext(aes(x = 2, y = (scot_rate[[1]]), label = glue("**{scot_rate[[2]]} <br> Scotland**")), color = "white", fill = "#665e9d", size = 3.5) +
+          geom_richtext(aes(x = 2, y = (ggc_rate[[1]]), label = glue("**{ggc_rate[[2]]} <br> GGC_HSCPs**")),  color = "black", fill = "#9cc951", size = 3.5)
+      } 
+  p
+}
+
+#################################################################################
 #################################################################################
 
 get_council_area_names <- function(tib){

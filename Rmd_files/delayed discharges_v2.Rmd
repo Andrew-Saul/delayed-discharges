@@ -17,7 +17,7 @@ if(!require(librarian)){
   library(librarian)
 }
 
-librarian::shelf(tidyverse, here, fs, rvest ,xml2, openxlsx, lubridate, readxl, janitor, glue, rlang, plotly)
+librarian::shelf(tidyverse, here, fs, rvest ,xml2, openxlsx, lubridate, readxl, janitor, glue, rlang, plotly, ggtext)
 source(here::here("scripts", "my_funcs.R"))
 source(here::here("scripts", "populations.R"))
 ```
@@ -130,38 +130,68 @@ tib_standard_yearagg <- get_group_bed_rates(tib_fytd, CNeeds_string ="Standard",
 ```
 
 ```{r currentplots}
-
-create_plot <- function(tib, CNeeds_string, fydate){
-  
-  mon <- tib %>% slice(1) %>% select(Months) %>% pull() %>% as.character()
-  FYear <- seperate_years_by_slash(fydate)
-  ggplot(tib, aes(x=reorder(CouncilArea, Rate), y=Rate, fill = GGCRegion))+
-    geom_col()+
-    geom_text(aes(label = format(signif(as.integer(Rate,3)))), hjust = 1, colour = "white") +
-    scale_fill_manual(name= "GGC Area", values =c("#0078D4", "#83bb26"))+
-    guides(fill = guide_legend(reverse=TRUE))+
-    coord_flip()+
-    labs(title = str_wrap(glue("{mon} FY({FYear}) – {CNeeds_string} Delays : Rate per 100,000 Population")),
-           y = str_wrap("Bed Days Rate (Per 100,000 Population)"),
-           x= "")+
-      #guides(linetype = guide_legend(order = 2), fill = guide_legend(order = 1), color = guide_legend(order = 1))+
-      theme_set(theme_minimal(base_size = 12, base_family = "Open Sans"))+
-      theme_update(
-        axis.ticks = element_line(color = "grey92"),
-        axis.ticks.length = unit(.5, "lines"),
-        panel.grid.minor = element_blank(),
-        legend.title = element_text(size = 12),
-        legend.text = element_text(color = "grey30"),
-        plot.title = element_text(size = 18, face = "bold"),
-        plot.subtitle = element_text(size = 12, color = "grey30"),
-        plot.caption = element_text(size = 9, margin = margin(t = 15))
-      )
-    
-  
-}
+# create_CArate_plot <- function(tib, CNeeds_string, fydate){
+#   
+#   mon <- tib %>% slice(1) %>% select(Months) %>% pull() %>% as.character()
+#   FYear <- seperate_years_by_slash(fydate)
+#   ggplot(tib, aes(x=reorder(CouncilArea, Rate), y=Rate, fill = GGCRegion))+
+#     geom_col()+
+#     geom_text(aes(label = format(signif(as.integer(Rate,3)))), hjust = 1, colour = "white") +
+#     scale_fill_manual(name= "GGC Area", values =c("#0078D4", "#83bb26"))+
+#     guides(fill = guide_legend(reverse=TRUE))+
+#     coord_flip()+
+#     labs(title = str_wrap(glue("{mon} FY({FYear}) – {CNeeds_string} Delays : Rate per 100,000 Population")),
+#            y = str_wrap("Bed Days Rate (Per 100,000 Population)"),
+#            x= "")+
+#       #guides(linetype = guide_legend(order = 2), fill = guide_legend(order = 1), color = guide_legend(order = 1))+
+#       theme_set(theme_minimal(base_size = 12, base_family = "Open Sans"))+
+#       theme_update(
+#         axis.ticks = element_line(color = "grey92"),
+#         axis.ticks.length = unit(.5, "lines"),
+#         panel.grid.minor = element_blank(),
+#         legend.title = element_text(size = 12),
+#         legend.text = element_text(color = "grey30"),
+#         plot.title = element_text(size = 18, face = "bold"),
+#         plot.subtitle = element_text(size = 12, color = "grey30"),
+#         plot.caption = element_text(size = 9, margin = margin(t = 15))
+#       )
+# }
+# 
 
 ```
 
+```{r}
+# tib = either tib_FY_CA or tib_fytd
+
+create_current_rateplot <- function(tib, CNeeds_string, fydate, mon=NULL) {
+
+#scot_rate and ggc_rate are lists containing the numeric value and the displayed char value to 1 dp
+#get scotland rate
+  scot_rate <-   get_group_bed_rates(tib, CNeeds_string, fydate, mon, ggc_flag=FALSE, scot_flag=TRUE) %>% 
+    get_group_bedrate_value()
+
+
+    #get ggc_rate    
+      
+    ggc_rate <- get_group_bed_rates(tib, CNeeds_string, fydate, mon, ggc_flag=TRUE, scot_flag=FALSE) %>% 
+      get_group_bedrate_value()
+
+   # ggc_rate <- get_group_bedrate_value(ggc_rate)
+# 
+#     #get_all_CA_rates
+     all_CA_rates <-  get_group_bed_rates(tib, CNeeds_string, fydate, mon) %>%
+     filter(CouncilArea != "Scotland")
+    # 
+    #list(scot_rate, ggc_rate, all_CA_rates)
+#     
+# # plot horizontal column plot
+  create_CArate_plot(df=all_CA_rates, CNeeds_string, fydate, mon, ggc_rate, scot_rate)
+    #list(scot_rate, ggc_rate, all_CA_rates)
+
+}
+create_current_rateplot(tib=tib_FY_CA, CNeeds_string = "Code 9", fydate = "2122", mon = "December")
+create_current_rateplot(tib=tib_fytd, CNeeds_string = "Standard", fydate = "2122", mon=NULL)
+```
 
 
 ```{r prev5yr}
@@ -170,12 +200,15 @@ create_plot <- function(tib, CNeeds_string, fydate){
 CA_names <- get_council_area_names(tib_FY_CA) # all regions
 
 #list of all Councils containing tibbles for min,max, avg current values
-all_rates <- map(CA_names, ~get_rates(tib=tib_FY_CA, CA= .x, CNeeds_string = "Code 9", fydate=2122, pop_objfile=LA_pop_18plus)) %>% 
+all_rates <- map(CA_names, ~get_rates(tib=tib_FY_CA, CA= .x, CNeeds_string = "Standard", fydate=2122, pop_objfile=LA_pop_18plus)) %>% 
   set_names(., CA_names)
 
 
 map(all_rates, create_5yr_plot)
 
-create_5yr_plot(all_rates, index=1, CNeeds_string ="Code 9")
+p <- create_5yr_plot(all_rates, index=27, CNeeds_string ="Standard")
+p
+ggplotly(p)
+
 ```
 
