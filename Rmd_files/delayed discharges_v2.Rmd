@@ -8,10 +8,11 @@ editor_options:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(echo = FALSE, fig.width = 10, fig.height = 6)
+Report_month <- "December"
 ```
 
-```{r}
+```{r include = "FALSE"} 
 if(!require(librarian)){
   install.packages("librarian")
   library(librarian)
@@ -36,10 +37,9 @@ LA_pop_18plus <- getLAPops(age_lowest = 18)
 
 ```{r download-NRS-recent-data}
 #file downloaded from NRS website if filename not present in data folder
-
 data_filename <- "beddays"
 #if(!file_exists(here::here("data", glue("{data_filename}.xlsx")))){
-download_data(filename = data_filename)
+#download_data(filename = data_filename)
 
 ```
 
@@ -85,47 +85,47 @@ tib_FY_CA<- get_FY_CA_data(raw_tib) %>%
 # Dec 2021 Code9 rates
 ############Scotland######################
 ## December 2021##
-scot_code9_mon <- get_group_bed_rates(tib_FY_CA, CNeeds_string = "Code 9",  fydate=2122, mon= "December", ggc_flag = FALSE, scot_flag = TRUE) %>% 
-  get_group_bedrate_value()
-
-scot_standard_mon <- get_group_bed_rates(tib_FY_CA, CNeeds_string = "Standard",  fydate=2122, mon= "December", ggc_flag = FALSE, scot_flag = TRUE) %>% 
-  get_group_bedrate_value()
-
-## up to Dec 2021 Scotland figures ##
-scot_code9_year_agg <- get_group_bed_rates(tib_fytd, CNeeds_string = "Code 9", fydate=2122, ggc_flag = FALSE, scot_flag = TRUE)  %>% 
-  get_group_bedrate_value()
-
-scot_standard_year_agg <- get_group_bed_rates(tib_fytd, CNeeds_string = "Standard", fydate=2122, ggc_flag = FALSE, scot_flag = TRUE)  %>% 
-  get_group_bedrate_value()
-
-################GGC group value#################
-## Dec 2021 ##
-ggc_code9_mon <- get_group_bed_rates(tib_FY_CA, CNeeds_string = "Code 9", fydate=2122,  mon = "December", ggc_flag = TRUE) %>% 
-  get_group_bedrate_value()
-
-ggc_standard_mon <- get_group_bed_rates(tib_FY_CA, CNeeds_string = "Standard", fydate=2122,  mon = "December", ggc_flag = TRUE) %>% 
-  get_group_bedrate_value()
-
-## up to Dec 2021 ##
-ggc_code9_year_agg <- get_group_bed_rates(tib_fytd,  CNeeds_string = "Code 9", fydate=2122, ggc_flag = TRUE)  %>% 
-  get_group_bedrate_value()
-
-ggc_standard_year_agg <- get_group_bed_rates(tib_fytd,  CNeeds_string = "Standard", fydate=2122, ggc_flag = TRUE)  %>% 
-  get_group_bedrate_value()
-######## All Council Areas ################################################
-## December ##
-tib_code9_mon <- get_group_bed_rates(tib_FY_CA, CNeeds_string = "Code 9", fydate=2122, mon = "December") %>% 
-  filter(CouncilArea != "Scotland")
-
-tib_standard_mon <- get_group_bed_rates(tib_FY_CA, CNeeds_string = "Standard", fydate=2122, mon = "December") %>% 
-  filter(CouncilArea != "Scotland")
-
-## up to Dec FY##
-tib_code9_yearagg <- get_group_bed_rates(tib_fytd, CNeeds_string ="Code 9", fydate=2122) %>% 
-  filter(CouncilArea != "Scotland")
-
-tib_standard_yearagg <- get_group_bed_rates(tib_fytd, CNeeds_string ="Standard", fydate=2122) %>% 
-  filter(CouncilArea != "Scotland")
+# scot_code9_mon <- get_group_bed_rates(tib_FY_CA, CNeeds_string = "Code 9",  fydate=2122, mon= "December", ggc_flag = FALSE, scot_flag = TRUE) %>% 
+#   get_group_bedrate_value()
+# 
+# scot_standard_mon <- get_group_bed_rates(tib_FY_CA, CNeeds_string = "Standard",  fydate=2122, mon= "December", ggc_flag = FALSE, scot_flag = TRUE) %>% 
+#   get_group_bedrate_value()
+# 
+# ## up to Dec 2021 Scotland figures ##
+# scot_code9_year_agg <- get_group_bed_rates(tib_fytd, CNeeds_string = "Code 9", fydate=2122, ggc_flag = FALSE, scot_flag = TRUE)  %>% 
+#   get_group_bedrate_value()
+# 
+# scot_standard_year_agg <- get_group_bed_rates(tib_fytd, CNeeds_string = "Standard", fydate=2122, ggc_flag = FALSE, scot_flag = TRUE)  %>% 
+#   get_group_bedrate_value()
+# 
+# ################GGC group value#################
+# ## Dec 2021 ##
+# ggc_code9_mon <- get_group_bed_rates(tib_FY_CA, CNeeds_string = "Code 9", fydate=2122,  mon = "December", ggc_flag = TRUE) %>% 
+#   get_group_bedrate_value()
+# 
+# ggc_standard_mon <- get_group_bed_rates(tib_FY_CA, CNeeds_string = "Standard", fydate=2122,  mon = "December", ggc_flag = TRUE) %>% 
+#   get_group_bedrate_value()
+# 
+# ## up to Dec 2021 ##
+# ggc_code9_year_agg <- get_group_bed_rates(tib_fytd,  CNeeds_string = "Code 9", fydate=2122, ggc_flag = TRUE)  %>% 
+#   get_group_bedrate_value()
+# 
+# ggc_standard_year_agg <- get_group_bed_rates(tib_fytd,  CNeeds_string = "Standard", fydate=2122, ggc_flag = TRUE)  %>% 
+#   get_group_bedrate_value()
+# ######## All Council Areas ################################################
+# ## December ##
+# tib_code9_mon <- get_group_bed_rates(tib_FY_CA, CNeeds_string = "Code 9", fydate=2122, mon = "December") %>% 
+#   filter(CouncilArea != "Scotland")
+# 
+# tib_standard_mon <- get_group_bed_rates(tib_FY_CA, CNeeds_string = "Standard", fydate=2122, mon = "December") %>% 
+#   filter(CouncilArea != "Scotland")
+# 
+# ## up to Dec FY##
+# tib_code9_yearagg <- get_group_bed_rates(tib_fytd, CNeeds_string ="Code 9", fydate=2122) %>% 
+#   filter(CouncilArea != "Scotland")
+# 
+# tib_standard_yearagg <- get_group_bed_rates(tib_fytd, CNeeds_string ="Standard", fydate=2122) %>% 
+#   filter(CouncilArea != "Scotland")
 
 ```
 
@@ -189,26 +189,78 @@ create_current_rateplot <- function(tib, CNeeds_string, fydate, mon=NULL) {
     #list(scot_rate, ggc_rate, all_CA_rates)
 
 }
-create_current_rateplot(tib=tib_FY_CA, CNeeds_string = "Code 9", fydate = "2122", mon = "December")
-create_current_rateplot(tib=tib_fytd, CNeeds_string = "Standard", fydate = "2122", mon=NULL)
+
 ```
 
 
 ```{r prev5yr}
-#Previous 5 year data excluding year 2021
-#Vector of Council Areas
-CA_names <- get_council_area_names(tib_FY_CA) # all regions
+# #Previous 5 year data excluding year 2021
+# #Vector of Council Areas
+all_CA_names <- get_council_area_names(tib_FY_CA) # all regions
+CA_of_interest <- c("Scotland", "East Dunbartonshire", "East Renfrewshire", "Glasgow City", "Inverclyde", "Renfrewshire", "West Dunbartonshire")
+fydate <- 2122
+CNeeds_list <- c("Code 9", "Standard")
+
 
 #list of all Councils containing tibbles for min,max, avg current values
-all_rates <- map(CA_names, ~get_rates(tib=tib_FY_CA, CA= .x, CNeeds_string = "Standard", fydate=2122, pop_objfile=LA_pop_18plus)) %>% 
-  set_names(., CA_names)
+
+ all_rates <- get_prev_7yr_rates(tib_FY_CA, CNeeds_list, CA_of_interest)
+
+# for (CNeeds_element in CNeeds_list){
+# all_rates[CNeeds_element] <- map(CNeeds_list, map(CA_names, ~get_rates(tib=tib_FY_CA, CA= .x, CNeeds_string = CNeeds_element, fydate= fydate, pop_objfile=LA_pop_18plus)) %>%
+#   set_names(., CA_names)
+# }
+
+#map(all_rates, create_5yr_plot)
+
+# Index contains the elements seq_along(CA_of_interest)
+#create_7yr_plot(tibble_name = all_rates, index=1, CNeeds_string ="Standard", CA_of_interest)
 
 
-map(all_rates, create_5yr_plot)
-
-p <- create_5yr_plot(all_rates, index=27, CNeeds_string ="Standard")
-p
-ggplotly(p)
 
 ```
+
+```{r}
+all_rates <- get_prev_7yr_rates(tib_FY_CA, CNeeds_list, CA_of_interest)
+```
+
+
+
+## Code 9 Results {.tabset}
+
+### `r Report_month`
+
+```{r}
+create_current_rateplot(tib=tib_FY_CA, CNeeds_string = "Code 9", fydate = "2122", mon = Report_month)
+
+```
+
+### FY to Date
+
+```{r}
+create_current_rateplot(tib=tib_fytd, CNeeds_string = "Code 9", fydate = "2122", mon=NULL)
+```
+
+### `r CA_of_interest[1]`
+
+```{r}
+create_7yr_plot(tibble_name = all_rates, index=1, CNeeds_string ="Code 9", CA_of_interest = CA_of_interest)
+```
+
+
+## Standard Results {.tabset}
+
+### `r Report_month`
+
+```{r}
+create_current_rateplot(tib=tib_FY_CA, CNeeds_string = "Standard", fydate = "2122", mon = Report_month)
+```
+
+### FY to Date
+
+```{r}
+create_current_rateplot(tib=tib_fytd, CNeeds_string = "Standard", fydate = "2122", mon=NULL)
+```
+
+
 

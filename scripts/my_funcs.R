@@ -266,11 +266,11 @@ p <-   ggplot(df, aes(x=reorder(CouncilArea, Rate), y=Rate, fill = GGCRegion))+
       if (is.null(mon)){
       #  p <-  p + annotate("text", label = str_wrap(glue("{scot_rate[[2]]} Scotland"), width = 10), x = 2, y = (scot_rate[[1]]-350), color = "#665e9d", size = 3.5)+
        #   annotate("text", label = str_wrap(glue("{ggc_rate[[2]]} GGC_HSCPs"), width = 10), x = 2, y = ggc_rate[[1]]+350, color = "#9cc951", size = 3.5)
-        p <- p + geom_richtext(aes(x = 2, y = (scot_rate[[1]]), label = glue("**{scot_rate[[2]]} <br> Scotland**")),  color = "white", fill = "#665e9d", size = 3.5) +
-          geom_richtext(aes(x = 2, y = (ggc_rate[[1]]), label = glue("**{ggc_rate[[2]]} <br> GGC_HSCPs**")),  color = "black", fill = "#9cc951", size = 3.5) 
+        p <- p + geom_richtext(x =2.5, y = (scot_rate[[1]]), aes(label = glue("**{scot_rate[[2]]} <br> Scotland**")),  color = "white", fill = "#665e9d", size = 3.5) +
+          geom_richtext(x = 6, aes(y = (ggc_rate[[1]]), label = glue("**{ggc_rate[[2]]} <br> GGC_HSCPs**")),  color = "black", fill = "#9cc951", size = 3.5) 
       } else {
-        p <- p + geom_richtext(aes(x = 2, y = (scot_rate[[1]]), label = glue("**{scot_rate[[2]]} <br> Scotland**")), color = "white", fill = "#665e9d", size = 3.5) +
-          geom_richtext(aes(x = 2, y = (ggc_rate[[1]]), label = glue("**{ggc_rate[[2]]} <br> GGC_HSCPs**")),  color = "black", fill = "#9cc951", size = 3.5)
+        p <- p + geom_richtext(x =6, y = (scot_rate[[1]]), aes( label = glue("**{scot_rate[[2]]} <br> Scotland**")), color = "white", fill = "#665e9d", size = 3.5) +
+          geom_richtext(x = 2.5, aes(y = (ggc_rate[[1]]), label = glue("**{ggc_rate[[2]]} <br> GGC_HSCPs**")),  color = "black", fill = "#9cc951", size = 3.5)
       } 
   p
 }
@@ -302,13 +302,13 @@ get_avg_rate <- function(df, pop_objfile=LA_pop_18plus){
     summarise(Avg_rate = 100000*sum(Counts)/sum(Pop))
 }
 
-#get_prev5 selects last 6 years but excludes FY 20/21 . assumes earliest current year is 21
-get_rates <- function(tib, CA, CNeeds_string, fydate, pop_objfile=LA_pop_18plus){
+# get rates assumes tibble has unique ComplexNeedsFlag value
+get_rates <- function(tib, CA, fydate, pop_objfile=LA_pop_18plus){
   prev5_tib <- tib %>% 
     mutate(prev5_flag = ifelse((FY %in% 2021 | FY - fydate < -606 | FY - fydate >=0), FALSE, TRUE)) %>% 
     filter(prev5_flag==TRUE) %>% 
     select(!prev5_flag) %>% 
-    filter(ComplexNeedsFlag == CNeeds_string) %>% 
+ #   filter(ComplexNeedsFlag == CNeeds_string) %>% 
     filter(CouncilArea == CA) 
   
   min_max_rate <- get_minmax_rates(prev5_tib, pop_objfile)
@@ -321,7 +321,7 @@ get_rates <- function(tib, CA, CNeeds_string, fydate, pop_objfile=LA_pop_18plus)
   #create current rates, join with prev5 year rates
    current_rate <- 
      tib %>% 
-    filter(ComplexNeedsFlag == CNeeds_string) %>% 
+  #  filter(ComplexNeedsFlag == CNeeds_string) %>% 
     filter(FY %in% fydate) %>% 
     filter(CouncilArea == CA) %>% 
     drop_na(Counts) %>% 
@@ -345,10 +345,25 @@ get_rates <- function(tib, CA, CNeeds_string, fydate, pop_objfile=LA_pop_18plus)
 #     rename(Current_rate = Avg_rate)
 # }
 
+get_prev_7yr_rates <- function(df, CNeeds_list, CA_of_interest){
+  df_split <- df %>%
+    filter(CouncilArea %in% CA_of_interest) %>% 
+    filter(ComplexNeedsFlag %in% CNeeds_list) %>%
+    split(.$ComplexNeedsFlag) 
+  
+  map(df_split, function(x) 
+    map(CA_of_interest, function(y) get_rates(tib = x, CA= y, fydate= fydate, pop_objfile=LA_pop_18plus)
+    )
+  )
+  
+}
 
-create_5yr_plot <- function(tibble_name = all_rates, index=NULL, CNeeds_string) {
+#get_prev5 selects last 6 years but excludes FY 20/21 . assumes earliest current year is 21
+create_7yr_plot <- function(tibble_name = all_rates, index=NULL, CNeeds_string, CA_of_interest) {
   #extract current FY from df
-  FY_label <- tibble_name[[index]] %>% 
+  
+  fun_df <- tibble_name[[CNeeds_string]][[index]] 
+  FY_label <- fun_df %>% 
     select(Current_FY) %>% 
     distinct() %>% 
     pull() %>% 
@@ -356,17 +371,17 @@ create_5yr_plot <- function(tibble_name = all_rates, index=NULL, CNeeds_string) 
     
   
     static_p <- 
-    ggplot(data=tibble_name[[index]], aes(group=1))+
+    ggplot(data=fun_df, aes(group=1))+
     geom_ribbon(aes(ymin = Min_rate, ymax=Max_rate, x= Months, fill = "Prev Min-Max"))+
-    geom_line(aes(x= Months, y=Avg_rate, colour = "Avg Value"),  linetype = "dashed")+
+    geom_line(aes(x= Months, y=Avg_rate, colour = "5yr Avg Value"),  linetype = "dashed")+
     geom_line(aes(x= Months, y=Current_rate, colour = "current"))+
     #scale_linetype_discrete(labels = c(current = glue("FY = {FY_label}")))+
     # the labels must match what you specified above
     scale_fill_manual(name = "", labels = c("Prev Min-Max"), values = c("Prev Min-Max" = "grey"), breaks = "Prev Min-Max") +
     
-    scale_color_manual(name = "", labels = c("Prev 5yr Avg", glue("FY = {FY_label}")), values = c("blue", "green"), breaks = c("Avg Value", "current"))+
+    scale_color_manual(name = "", labels = c("Prev 5yr Avg", glue("FY = {FY_label}")), values = c("blue", "green"), breaks = c("5yr Avg Value", "current"))+
       
-      labs(title = str_wrap(glue("{names(tibble_name[index])} : Monthly Bed Days Rate (per 100,000) with Previous 5-Year Average Comparison (2015/16-2019/20) - {CNeeds_string} ")),
+      labs(title = str_wrap(glue("{CA_of_interest[index]} : Monthly Bed Days Rate (per 100,000) with Previous 5-Year Average Comparison (2015/16-2019/20) - {CNeeds_string} ")),
            y = str_wrap("Delayed Discharge Bed Days Rate (per 100,000 population)", width = 30),
            x= "")+
       #guides(linetype = guide_legend(order = 2), fill = guide_legend(order = 1), color = guide_legend(order = 1))+
@@ -384,12 +399,17 @@ create_5yr_plot <- function(tibble_name = all_rates, index=NULL, CNeeds_string) 
       theme(legend.position = "top")
         theme(legend.title=element_blank()) 
     
-  static_p
+  ggplotly(static_p)
   
   ## Needs title/y-axis label###########
   ######################################
 }
 
+
+create_5yr_table <- function(tibble_name = all_rates, index=NULL, CNeeds_string){
+  tib 
+    
+}
 
 
 # #############################################################################
