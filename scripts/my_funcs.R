@@ -275,8 +275,35 @@ p <-   ggplot(df, aes(x=reorder(CouncilArea, Rate), y=Rate, fill = GGCRegion))+
   p
 }
 
+#################################################################################################
+##  creates plots for first two tabs of webpage - each CA with reference to Scot and GGC values ##
+##################################################################################################
+create_current_rateplot <- function(tib, CNeeds_string, fydate, mon=NULL) {
+  
+  #scot_rate and ggc_rate are lists containing the numeric value and the displayed char value to 1 dp
+  #get scotland rate
+  scot_rate <-   get_group_bed_rates(tib, CNeeds_string, fydate, mon, ggc_flag=FALSE, scot_flag=TRUE) %>% 
+    get_group_bedrate_value()
+  
+  
+  #get ggc_rate    
+  
+  ggc_rate <- get_group_bed_rates(tib, CNeeds_string, fydate, mon, ggc_flag=TRUE, scot_flag=FALSE) %>% 
+    get_group_bedrate_value()
+  
+  # ggc_rate <- get_group_bedrate_value(ggc_rate)
+  # 
+  #     #get_all_CA_rates
+  all_CA_rates <-  get_group_bed_rates(tib, CNeeds_string, fydate, mon) %>%
+    filter(CouncilArea != "Scotland")
+
+  # # plot horizontal column plot
+  create_CArate_plot(df=all_CA_rates, CNeeds_string, fydate, mon, ggc_rate, scot_rate)
+}
+
 #################################################################################
-#################################################################################
+#########functions required to plot and tabulate 7yr historic data ##############
+##################################################################################
 
 get_council_area_names <- function(tib){
   tib %>% 
@@ -354,15 +381,16 @@ get_prev_7yr_rates <- function(df, CNeeds_list, CA_of_interest){
   map(df_split, function(x) 
     map(CA_of_interest, function(y) get_rates(tib = x, CA= y, fydate= fydate, pop_objfile=LA_pop_18plus)
     )
-  )
+  ) #%>% 
+   # imap(~list(CNeeds_list=.y, CA_of_interest =.x))
   
 }
 
-#get_prev5 selects last 6 years but excludes FY 20/21 . assumes earliest current year is 21
-create_7yr_plot <- function(tibble_name = all_rates, index=NULL, CNeeds_string, CA_of_interest) {
+#get_prev5 selects last 6 years but excludes FY 20/21 .tibble_name = all_rates, index=NULL, CNeeds_string, CA_of_interest assumes earliest current year is 21
+create_7yr_plot <- function(tibble_name = all_rates, index=NULL, CNeeds_string=NULL, CA_of_interest) {
   #extract current FY from df
   
-  fun_df <- tibble_name[[CNeeds_string]][[index]] 
+  fun_df <- tibble_name[[CNeeds_string]][[index]]
   FY_label <- fun_df %>% 
     select(Current_FY) %>% 
     distinct() %>% 
@@ -381,7 +409,7 @@ create_7yr_plot <- function(tibble_name = all_rates, index=NULL, CNeeds_string, 
     
     scale_color_manual(name = "", labels = c("Prev 5yr Avg", glue("FY = {FY_label}")), values = c("blue", "green"), breaks = c("5yr Avg Value", "current"))+
       
-      labs(title = str_wrap(glue("{CA_of_interest[index]} : Monthly Bed Days Rate (per 100,000) with Previous 5-Year Average Comparison (2015/16-2019/20) - {CNeeds_string} ")),
+      labs(title = str_wrap(glue("{CA_of_interest} : Monthly Bed Days Rate (per 100,000) with Previous 5-Year Average Comparison (2015/16-2019/20) - {CNeeds_string} ")),
            y = str_wrap("Delayed Discharge Bed Days Rate (per 100,000 population)", width = 30),
            x= "")+
       #guides(linetype = guide_legend(order = 2), fill = guide_legend(order = 1), color = guide_legend(order = 1))+
@@ -396,8 +424,8 @@ create_7yr_plot <- function(tibble_name = all_rates, index=NULL, CNeeds_string, 
         plot.subtitle = element_text(size = 12, color = "grey30"),
         plot.caption = element_text(size = 9, margin = margin(t = 15))
       )+
-      theme(legend.position = "top")
-        theme(legend.title=element_blank()) 
+      theme(legend.position = "top") 
+       # theme(legend.title=element_blank()) 
     
   ggplotly(static_p)
   
@@ -406,12 +434,23 @@ create_7yr_plot <- function(tibble_name = all_rates, index=NULL, CNeeds_string, 
 }
 
 
-create_5yr_table <- function(tibble_name = all_rates, index=NULL, CNeeds_string){
-  tib 
+create_7yr_table <- function(tibble_name = all_rates, index=NULL, CNeeds_string, CA_of_interest){
+  
+  fun_df <- tibble_name[[CNeeds_string]][[index]]
+  
+  fun_df %>% 
+    select(Months, Current_FY, Current_rate) %>% 
+    pivot_wider(names_from = "Months", values_from = "Current_rate") %>% 
+    mutate(across(Apr:Mar, ~format(round(.x,1)))) %>% 
+    kbl() %>% 
+    kable_styling()
+    
     
 }
 
-
+create_arglist <- function(i, CNS, CA_of_interest){
+  list(all_rates, CNeeds_string = CNS, CA_of_interest = CA_of_interest[i])
+}
 # #############################################################################
 # ########### Population data###################################################
 # # #########################################################################

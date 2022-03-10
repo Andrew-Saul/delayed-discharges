@@ -18,7 +18,7 @@ if(!require(librarian)){
   library(librarian)
 }
 
-librarian::shelf(tidyverse, here, fs, rvest ,xml2, openxlsx, lubridate, readxl, janitor, glue, rlang, plotly, ggtext)
+librarian::shelf(tidyverse, here, fs, rvest ,xml2, openxlsx, lubridate, readxl, janitor, glue, rlang, plotly, ggtext, kableExtra)
 source(here::here("scripts", "my_funcs.R"))
 source(here::here("scripts", "populations.R"))
 ```
@@ -197,14 +197,17 @@ create_current_rateplot <- function(tib, CNeeds_string, fydate, mon=NULL) {
 # #Previous 5 year data excluding year 2021
 # #Vector of Council Areas
 all_CA_names <- get_council_area_names(tib_FY_CA) # all regions
-CA_of_interest <- c("Scotland", "East Dunbartonshire", "East Renfrewshire", "Glasgow City", "Inverclyde", "Renfrewshire", "West Dunbartonshire")
+CA_of_interest <- c("Scotland", "East Dunbartonshire", "East Renfrewshire", "Glasgow City", "Inverclyde", "Renfrewshire", "West Dunbartonshire") %>% 
+  set_names(.)
 fydate <- 2122
-CNeeds_list <- c("Code 9", "Standard")
+CNeeds_list <- c("Code 9", "Standard") %>% 
+  set_names(.)
 
 
 #list of all Councils containing tibbles for min,max, avg current values
 
- all_rates <- get_prev_7yr_rates(tib_FY_CA, CNeeds_list, CA_of_interest)
+ all_rates <- get_prev_7yr_rates(tib_FY_CA, CNeeds_list, CA_of_interest) 
+
 
 # for (CNeeds_element in CNeeds_list){
 # all_rates[CNeeds_element] <- map(CNeeds_list, map(CA_names, ~get_rates(tib=tib_FY_CA, CA= .x, CNeeds_string = CNeeds_element, fydate= fydate, pop_objfile=LA_pop_18plus)) %>%
@@ -221,7 +224,7 @@ CNeeds_list <- c("Code 9", "Standard")
 ```
 
 ```{r}
-all_rates <- get_prev_7yr_rates(tib_FY_CA, CNeeds_list, CA_of_interest)
+
 ```
 
 
@@ -244,7 +247,19 @@ create_current_rateplot(tib=tib_fytd, CNeeds_string = "Code 9", fydate = "2122",
 ### `r CA_of_interest[1]`
 
 ```{r}
-create_7yr_plot(tibble_name = all_rates, index=1, CNeeds_string ="Code 9", CA_of_interest = CA_of_interest)
+#assumes vectors of CA_of_interest AND CNeeds_list are defined
+plot_table_func_list <- c("create_7yr_plot", "create_7yr_table")
+
+arglist_i <- create_arglist(i = 1, CNS = CNeeds_list["Code 9"])
+
+do.call(plot_table_func_list[1], arglist_i)
+#do.call(plot_table_func_list[1], arglist_i)
+
+# "Code 9""
+# create_7yr_plot(tibble_name = all_rates, index="Glasgow City", CNeeds_string =CNeeds_string, CA_of_interest = CA_of_interest)
+
+# create_7yr_table(tibble_name = all_rates, index=1, CNeeds_string =CNeeds_string, CA_of_interest = CA_of_interest)
+  
 ```
 
 
