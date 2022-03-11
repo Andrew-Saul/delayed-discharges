@@ -19,3 +19,4 @@ data/
 # R data files #
 *.[rR][dD][aA][tT][aA]
 *.[rR][dD][sS]
+packrat/lib*/
