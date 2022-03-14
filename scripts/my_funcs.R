@@ -9,8 +9,8 @@ librarian::shelf(tidyverse, here, fs, readxl, janitor, glue, rlang)
 
 # Scripts to acquire uptodate date from NRS --------------------------------------------------------
 
-scraplinks <- function(text_string = "beddays"){
-  NRS_url  <- "https://publichealthscotland.scot/publications/delayed-discharges-in-nhsscotland-monthly/delayed-discharges-in-nhsscotland-monthly-figures-for-december-2021/#section-3"
+scraplinks <- function(text_string = "beddays", Report_month, Report_year){
+  NRS_url  <- glue("https://publichealthscotland.scot/publications/delayed-discharges-in-nhsscotland-monthly/delayed-discharges-in-nhsscotland-monthly-figures-for-{Report_month}-{Report_year}/#section-3")
   #text_string <- "beddays"
   # Create an html document from the url
   webpage <- xml2::read_html(NRS_url)
@@ -35,10 +35,10 @@ scraplinks <- function(text_string = "beddays"){
   }
 }
 
-download_data <- function(filepath_url, filename){
+download_data <- function(filepath_url, filename, month, year){
   
   if(missing(filepath_url)){
-    filepath_url <- scraplinks(filename)
+    filepath_url <- scraplinks(filename, month, year)
   } # if statement
   
   temp <- here::here("data", glue("{filename}.xlsx"))
@@ -46,17 +46,19 @@ download_data <- function(filepath_url, filename){
 }
 
 # Create tibbles for analysis ----------------------------------------------------
-get_CA_bed_rates <- function(tib, CNeeds_string, fydate, mon=NULL) {
+get_CA_bed_rates <- function(tib, CNeeds_string, fydate, mon, FYTD_flag=FALSE) {
   #get bed rates (per 100,000) for each region, year or Month/year as well as member of CCGRegion.
   # Rates dependent on pop of that specific year!
   # enter tibble, and element of ComplexNeedsFlag
   tib <- tib %>% 
     filter(ComplexNeedsFlag == CNeeds_string) %>% 
-    filter(FY %in% fydate)# %>% 
+    filter(FY %in% fydate)
+    # %>% 
   #filter(CouncilArea != "Other") 
   
-  if (!is.null(mon)){
-    tib %>% filter(Months %in% mon) %>% 
+  if (!is_true(FYTD_flag)){
+    tib %>% 
+      filter(Months %in% mon) %>% 
       # mutate(Months = factor(Months, levels = c(month_order, ordered = TRUE))) %>% 
       left_join(LA_pop_18plus, by = c("CouncilArea", "FY_begin" = "year")) %>%
       group_by(CouncilArea, FY, Months, GGCRegion) %>% 
@@ -65,21 +67,26 @@ get_CA_bed_rates <- function(tib, CNeeds_string, fydate, mon=NULL) {
       mutate(Rate = Counts/Pop *100000)
   } 
   else {
-    left_join(tib, LA_pop_18plus, by = c("CouncilArea", "FY_begin" = "year")) %>% 
-      group_by(CouncilArea, FY, GGCRegion) %>% 
-      drop_na() %>% 
-      summarise(Counts = sum(Counts), Pop = mean(Pop), .groups = "drop") %>% 
+    tib <- tib %>% 
+      mutate(Month_level = as.numeric(Months)) #create numeric month field
       
-      mutate(Rate = Counts/Pop *100000)
+    month_value <- get_month_factor_level(tib, mon) # convert mon into numeric
+      
+   left_join(tib, LA_pop_18plus, by = c("CouncilArea", "FY_begin" = "year")) %>%
+     filter(Month_level <= month_value) %>%
+     group_by(CouncilArea, FY, GGCRegion) %>% 
+     # filter by mon value     
+     summarise(Counts = sum(Counts), Pop = mean(Pop), .groups = "drop") %>% 
+     mutate(Rate = Counts/Pop *100000)
   }
 }
 
-get_rank <- function(tib, CNeeds_string, fydate, mon=NULL){
+get_rank <- function(tib, CNeeds_string, fydate, mon, FYTD_flag=FALSE){
   #Ranks CAs according to Rate - lower rating for lower Rate
   
   #Get bedrates and rank (includes Scotland)
-  tib <- get_CA_bed_rates(tib, CNeeds_string, fydate, mon) %>% 
-    mutate(Rank = min_rank(Rate))
+  tib <- get_CA_bed_rates(tib, CNeeds_string, fydate, mon, FYTD_flag) %>% 
+    mutate(Rank = min_rank(Rate)) 
     
     # assign Scotland rank as NA
     tib$Rank[tib$CouncilArea=="Scotland"] <- NA
@@ -90,50 +97,66 @@ get_rank <- function(tib, CNeeds_string, fydate, mon=NULL){
 } 
 
 
-get_last_change <- function(tib, CNeeds_string, fydate, mon=NULL) {
+get_last_change <- function(tib, CNeeds_string, fydate, mon, FYTD_flag=FALSE) {
   #get bed rates (per 100,000) for each region, year or Month/year as well as member of CCGRegion.
   # Rates dependent on pop of that specific year!
   # enter tibble, and element of ComplexNeedsFlag
 
   #tib = tib_FY_CA 
+  #current bedrates
+  current_BR <- get_CA_bed_rates(tib, CNeeds_string, fydate, mon, FYTD_flag)
   
-current_BR <- get_CA_bed_rates(tib, CNeeds_string, fydate, mon) 
+  #calculate previous month's bedrate ##
+  
+  # assign numeric value in tibble for month
+  tib_new <- tib %>% 
+    filter(ComplexNeedsFlag == CNeeds_string) %>% 
+    mutate(Month_level = as.numeric(Months))
 
-    #calculate previous month's bedrate ##
-      # get month level as an integer
-  if(!is.null(mon)){
-    tib <- tib %>% 
-      filter(ComplexNeedsFlag == CNeeds_string) %>% 
-      mutate(Month_level = as.numeric(Months))
-    
-    # factor level of month
-      # if April, then get March of previous FY
-   mon_level <- get_month_factor_level(tib, mon=mon)
-   if(mon_level == 1){
-     preceeding_level = 12
-     preceeding_level_FY = fydate-101
-   } else {
-     preceeding_level = mon_level-1
-     preceeding_level_FY = fydate
-   }
-    
-   # calculate previous months counts and store tibble
-    prev_counts <- tib %>% filter(Month_level == preceeding_level, 
-                          FY == preceeding_level_FY) %>% 
+  # get month level as an integer
+  mon_level <- get_month_factor_level(tib_new, mon)
+  
+  ## get previous month's value.
+  
+  if(!is_true(FYTD_flag)){
+    #if April, then get March of previous FY
+    if(mon_level == 1){
+       preceeding_level = 12
+       preceeding_level_FY = fydate-101
+    } else {
+       preceeding_level = mon_level-1
+       preceeding_level_FY = fydate
+    }
+    #calculate previous months counts and store tibble
+    prev_counts <- tib_new %>% filter(Month_level == preceeding_level, 
+                                  FY == preceeding_level_FY) %>% 
       mutate(Prev_counts = Counts) %>% 
-      select(CouncilArea, Prev_counts) 
-  } else {
-    
-    prev_counts <- tib %>% 
-      filter(ComplexNeedsFlag == CNeeds_string, FY == fydate - 101) %>% 
-      select(CouncilArea, Prev_counts = Counts)
-    
-  }
+      select(CouncilArea, Prev_counts)
 
     #join current and prev tibbles, and calculate Rank of all regions 
-    left_join(current_BR, prev_counts) %>% 
-      mutate(Prev_rate = 100000*Prev_counts/Pop) %>% 
-      mutate(Per_change = scales::percent((Rate - Prev_rate)/Prev_rate))
+   df <-  left_join(current_BR, prev_counts) %>% 
+      mutate(Prev_rate = 100000*Prev_counts/Pop) %>%
+      mutate(Per_change = scales::percent((Rate - Prev_rate)/Prev_rate)) 
+    } else #if !is_true (FYTD_flag)
+      {
+        tib1 <- tib_new %>%
+          filter(FY == fydate-101)
+
+         tib2 <-  left_join(tib1, LA_pop_18plus, by = c("CouncilArea", "FY_begin" = "year")) %>%
+          filter(Month_level <= mon_level) %>%
+          group_by(CouncilArea, FY, FY_begin, GGCRegion) %>%
+          # filter by mon value
+          summarise(Counts = sum(Counts), Pop = mean(Pop), .groups = "drop") %>%
+          mutate(Prev_Rate = Counts/Pop *100000)
+
+       df <-    left_join(current_BR, tib2, by = "CouncilArea") %>%
+           select(CouncilArea, Rate, Prev_Rate) %>%
+           mutate(Change = scales::percent((Rate - Prev_Rate)/Prev_Rate))
+         }
+
+      #add rank to tibble
+      left_join(df, get_rank(tib, CNeeds_string, fydate, mon, FYTD_flag), by = "CouncilArea")
+
 }
 
 get_group_bed_rates <- function(..., ggc_flag = FALSE, scot_flag = FALSE){
@@ -143,7 +166,7 @@ get_group_bed_rates <- function(..., ggc_flag = FALSE, scot_flag = FALSE){
     get_CA_bed_rates(...) %>%
       filter(CouncilArea == "Scotland")
     
-  } else if (ggc_flag == TRUE ){
+  } else if (ggc_flag == TRUE){
     
     arglist <- list(...)
     
@@ -151,13 +174,13 @@ get_group_bed_rates <- function(..., ggc_flag = FALSE, scot_flag = FALSE){
       filter(GGCRegion == TRUE)
     
     #default value of mon = NULL for CA_bed_rate function, in case looking at upto FY rates
-    if(length(arglist) == 4){
-      mon=arglist[[4]]
-    } else if (length(arglist) == 3) {
-      mon=NULL
-    } else {
-      #message("arglist in function get_group_bed_rates = ", length(arglist))
-    }
+    # if(length(arglist) == 4){
+    #   mon=arglist[[4]]
+    # } else if (length(arglist) == 3) {
+    #   mon=NULL
+    # } else {
+    #   #message("arglist in function get_group_bed_rates = ", length(arglist))
+    # }
     
     
     do.call(get_CA_bed_rates, arglist) %>% 
@@ -215,10 +238,13 @@ get_rates <- function(tib, CA, fydate, pop_objfile=LA_pop_18plus){
 
 # Create plots and tables for display -----------------------------------
 
-create_CArate_plot <- function(df, CNeeds_string, fydate, mon, ggc_rate, scot_rate){
+create_CArate_plot <- function(df, CNeeds_string, fydate, mon, FYTD_flag, g_rate = ggc_rate, s_rate = scot_rate){
   ## plot of rates for all CAs 
+
+  df <- df %>% 
+    filter(CouncilArea != "Other")
   
-  if (is.null(mon)){
+  if (is_true(FYTD_flag)){
     mon_title <- c("Financial Year to Date")
     FYear_title <- seperate_years_by_slash(fydate)
   } else {# CORRECT THIS WHERE MONTHS DONT EXiST!!!!!!!!!
@@ -232,8 +258,8 @@ create_CArate_plot <- function(df, CNeeds_string, fydate, mon, ggc_rate, scot_ra
     geom_text(aes(label = format(signif(as.integer(Rate,3)))), hjust = 1, colour = "white") +
     scale_fill_manual(name= "GGC Area", values =c("#3393dd", "#9cc951"))+
     guides(fill = guide_legend(reverse=TRUE))+
-    geom_hline(yintercept=scot_rate[[1]], color = "#3f3685")+
-    geom_hline(yintercept=ggc_rate[[1]], color = "#83bb26")+
+    geom_hline(yintercept=s_rate[[1]], color = "#3f3685")+
+    geom_hline(yintercept=g_rate[[1]], color = "#83bb26")+
     coord_flip()+
     labs(title = str_wrap(glue("{mon_title} ({FYear_title}) – {CNeeds_string} Delays : Rate per 100,000 Population")),
          y = str_wrap("Bed Days Rate (Per 100,000 Population)"),
@@ -252,41 +278,41 @@ create_CArate_plot <- function(df, CNeeds_string, fydate, mon, ggc_rate, scot_ra
       plot.caption = element_text(size = 9, margin = margin(t = 15))
     )
   
-  if (is.null(mon)){
-    #  p <-  p + annotate("text", label = str_wrap(glue("{scot_rate[[2]]} Scotland"), width = 10), x = 2, y = (scot_rate[[1]]-350), color = "#665e9d", size = 3.5)+
-    #   annotate("text", label = str_wrap(glue("{ggc_rate[[2]]} GGC_HSCPs"), width = 10), x = 2, y = ggc_rate[[1]]+350, color = "#9cc951", size = 3.5)
-    p <- p + geom_richtext(x =2.5, y = (scot_rate[[1]]), aes(label = glue("**{scot_rate[[2]]} <br> Scotland**")),  color = "white", fill = "#665e9d", size = 3.5) +
-      geom_richtext(x = 6, aes(y = (ggc_rate[[1]]), label = glue("**{ggc_rate[[2]]} <br> GGC_HSCPs**")),  color = "black", fill = "#9cc951", size = 3.5) 
+  if (is_true(FYTD_flag)){
+    #  p <-  p + annotate("text", label = str_wrap(glue("{s_rate[[2]]} Scotland"), width = 10), x = 2, y = (s_rate[[1]]-350), color = "#665e9d", size = 3.5)+
+    #   annotate("text", label = str_wrap(glue("{g_rate[[2]]} GGC_HSCPs"), width = 10), x = 2, y = g_rate[[1]]+350, color = "#9cc951", size = 3.5)
+    p <- p + geom_richtext(x =2.5, y = (s_rate[[1]]), aes(label = glue("**{s_rate[[2]]} <br> Scotland**")),  color = "white", fill = "#665e9d", size = 3.5) +
+      geom_richtext(x = 6, aes(y = (g_rate[[1]]), label = glue("**{g_rate[[2]]} <br> GGC_HSCPs**")),  color = "black", fill = "#9cc951", size = 3.5) 
   } else {
-    p <- p + geom_richtext(x =6, y = (scot_rate[[1]]), aes( label = glue("**{scot_rate[[2]]} <br> Scotland**")), color = "white", fill = "#665e9d", size = 3.5) +
-      geom_richtext(x = 2.5, aes(y = (ggc_rate[[1]]), label = glue("**{ggc_rate[[2]]} <br> GGC_HSCPs**")),  color = "black", fill = "#9cc951", size = 3.5)
+    p <- p + geom_richtext(x =6, y = (s_rate[[1]]), aes( label = glue("**{s_rate[[2]]} <br> Scotland**")), color = "white", fill = "#665e9d", size = 3.5) +
+      geom_richtext(x = 2.5, aes(y = (g_rate[[1]]), label = glue("**{g_rate[[2]]} <br> GGC_HSCPs**")),  color = "black", fill = "#9cc951", size = 3.5)
   } 
   p
 }
 
 
-create_current_rateplot <- function(tib, CNeeds_string, fydate, mon=NULL) {
+create_current_rateplot <- function(tib, CNeeds_string, fydate, mon, FYTD_flag=FALSE) {
   ## create CAs plot automatically according to flags 
   
   #scot_rate and ggc_rate are lists containing the numeric value and the displayed char value to 1 dp
   #get scotland rate
-  scot_rate <-   get_group_bed_rates(tib, CNeeds_string, fydate, mon, ggc_flag=FALSE, scot_flag=TRUE) %>% 
+  scot_rate <-   get_group_bed_rates(tib, CNeeds_string, fydate, mon, FYTD_flag, ggc_flag=FALSE, scot_flag=TRUE) %>% 
     get_group_bedrate_value()
   
   
   #get ggc_rate    
   
-  ggc_rate <- get_group_bed_rates(tib, CNeeds_string, fydate, mon, ggc_flag=TRUE, scot_flag=FALSE) %>% 
+  ggc_rate <- get_group_bed_rates(tib, CNeeds_string, fydate, mon, FYTD_flag, ggc_flag=TRUE, scot_flag=FALSE) %>% 
     get_group_bedrate_value()
   
   # ggc_rate <- get_group_bedrate_value(ggc_rate)
   # 
   #     #get_all_CA_rates
-  all_CA_rates <-  get_group_bed_rates(tib, CNeeds_string, fydate, mon) %>%
+  all_CA_rates <-  get_group_bed_rates(tib, CNeeds_string, fydate, mon, FYTD_flag) %>%
     filter(CouncilArea != "Scotland")
   
   # # plot horizontal column plot
-  create_CArate_plot(df=all_CA_rates, CNeeds_string, fydate, mon, ggc_rate, scot_rate)
+  create_CArate_plot(df=all_CA_rates, CNeeds_string, fydate, mon, FYTD_flag, g_rate = ggc_rate, s_rate = scot_rate)
 }
 
 create_7yr_plot <- function(tibble_name = all_rates, index=NULL, CNeeds_string=NULL, CA_of_interest) {
