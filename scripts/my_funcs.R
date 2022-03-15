@@ -203,6 +203,15 @@ get_prev_7yr_rates <- function(df, CNeeds_list, CA_of_interest){
   ) 
 } 
 
+get_historic_counts <- function(tib, CA, fydate, pop_objfile=LA_pop_18plus) {
+  tib %>% 
+    mutate(prev5_flag = ifelse((FY %in% 2021 | FY - fydate < -606 | FY - fydate >=0), FALSE, TRUE)) %>% 
+    filter(prev5_flag==TRUE) %>% 
+    select(!prev5_flag) %>% 
+    #   filter(ComplexNeedsFlag == CNeeds_string) %>% 
+    filter(CouncilArea == CA) 
+}
+
 get_rates <- function(tib, CA, fydate, pop_objfile=LA_pop_18plus){
   #get last 7yrs data (excluding 2021) in terms of rates
   #assumes tibble has unique ComplexNeedsFlag value
@@ -232,7 +241,7 @@ get_rates <- function(tib, CA, fydate, pop_objfile=LA_pop_18plus){
   
   left_join(prev5_rate, current_rate, by = "Months") %>% 
     mutate(Current_FY = fydate) %>% 
-    mutate(Months = factor(Months, labels = c("Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar")))
+    mutate(Month_labels = factor(Months, labels = c("Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar")))
   
 }
 
@@ -330,9 +339,9 @@ create_7yr_plot <- function(tibble_name = all_rates, index=NULL, CNeeds_string=N
   
   static_p <- 
     ggplot(data=fun_df, aes(group=1))+
-    geom_ribbon(aes(ymin = Min_rate, ymax=Max_rate, x= Months, fill = "Prev Min-Max"))+
-    geom_line(aes(x= Months, y=Avg_rate, colour = "5yr Avg Value"),  linetype = "dashed")+
-    geom_line(aes(x= Months, y=Current_rate, colour = "current"))+
+    geom_ribbon(aes(ymin = Min_rate, ymax=Max_rate, x= Month_labels, fill = "Prev Min-Max"))+
+    geom_line(aes(x= Month_labels, y=Avg_rate, colour = "5yr Avg Value"),  linetype = "dashed")+
+    geom_line(aes(x= Month_labels, y=Current_rate, colour = "current"))+
     #scale_linetype_discrete(labels = c(current = glue("FY = {FY_label}")))+
     # the labels must match what you specified above
     scale_fill_manual(name = "", labels = c("Prev Min-Max"), values = c("Prev Min-Max" = "grey"), breaks = "Prev Min-Max") +
@@ -367,8 +376,8 @@ create_7yr_table <- function(tibble_name = all_rates, index=NULL, CNeeds_string,
   fun_df <- tibble_name[[CNeeds_string]][[index]]
   
   fun_df %>% 
-    select(Months, Current_FY, Current_rate) %>% 
-    pivot_wider(names_from = "Months", values_from = "Current_rate") %>% 
+    select(Month_labels, Current_FY, Current_rate) %>% 
+    pivot_wider(names_from = "Month_labels", values_from = "Current_rate") %>% 
     mutate(across(Apr:Mar, ~format(round(.x,1)))) %>% 
     kbl() %>% 
     kable_styling()
@@ -524,3 +533,4 @@ get_month_factor_level <- function(tib, mon) {
     select(Month_level) %>% 
     pull()
 }
+
