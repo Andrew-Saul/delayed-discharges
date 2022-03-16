@@ -1,0 +1,315 @@
+---
+title: "Untitled"
+author: "Andrew Saul"
+date: "14/02/2022"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+- Need to check 20/21 FY to date rates
+- Need to get 5yr avg rates
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, fig.width = 10, fig.height = 6)
+```
+
+
+```{r include = "FALSE"} 
+if(!require(librarian)){
+  install.packages("librarian")
+  library(librarian)
+}
+
+librarian::shelf(tidyverse, here, fs, rvest ,xml2, openxlsx, lubridate, readxl, janitor, glue, rlang, plotly, ggtext, kableExtra)
+source(here::here("scripts", "my_funcs.R"))
+source(here::here("scripts", "populations.R"))
+```
+
+```{r variables}
+Report_month <- "January"
+Report_year <- 2022
+
+# Current FY
+fydate <- convert_calender_to_FY(Report_year, Report_month)
+
+# council areas of interest
+CA_of_interest <- c("Scotland", "East Dunbartonshire", "East Renfrewshire", "Glasgow City", "Inverclyde", "Renfrewshire", "West Dunbartonshire") %>% 
+  set_names(.)
+
+CA_no_Scotland <- c("East Dunbartonshire", "East Renfrewshire", "Glasgow City", "Inverclyde", "Renfrewshire", "West Dunbartonshire") %>% 
+  set_names(.)
+
+CNeeds_list <- c("Code 9", "Standard") %>%
+  set_names(.)
+```
+
+
+```{r historical-stats}
+# getLAPops acquires pop data stored in an .rds file
+#find pops for ages>= 18 for all LAs and Scotland
+# NO SCOTLAND POP DATA WITH THIS .RDS
+
+# no data available for mid-pop estimate for 2021.  
+# locf (last observation carried forward) utilised from 2020 for 2021
+#Scotland pop values created by summing all CouncilAreas.
+LA_pop_18plus <- getLAPops(age_lowest = 18)
+
+```
+
+```{r download-NRS-recent-data}
+#file downloaded from NRS website if filename not present in data folder
+data_filename <- "beddays"
+#if(!file_exists(here::here("data", glue("{data_filename}.xlsx")))){
+download_data(filename = data_filename, month=Report_month, year=Report_year)
+
+```
+
+```{r convert-to-tibbles}
+# save pathname of beddays xlsx file to object 
+xl_file <- here::here("data", glue("{data_filename}.xlsx"))
+
+#create a single tibble containing both healthboard and LA data, as "Scotland" located in HB... sheets. Only "Scotland" kept from HB... sheets 
+# change format of FY (eg 1718)to year of start FY (2017)
+raw_tib <- map_dfr(create_sheetname_vector(xl_file), # vector of LA and HB data from FY 12/13 until 21/22
+              ~create_FY_authority(xl_file, sheet_name = .x)) 
+
+######################################################################################
+#create tibble with FY to date 
+# tib_fytd <- raw_tib %>% 
+#   select("CouncilArea", "AgeGroup", "ComplexNeedsFlag", "FYToDate", "FY", "FY_begin") %>% 
+#   rename(Counts = FYToDate) %>% 
+#   add_GGC_field()
+
+######################################################################################
+#create tibble with Month/Year Counts
+# used to 1- select columns for pivoting & 2- set order of months
+month_order <- c("April", "May", "June", "July", "August", "September",
+                   "October", "November", "December", "January", "February",
+                   "March")
+
+tib_FY_CA<- get_FY_CA_data(raw_tib) %>% 
+  add_GGC_field()
+
+```
+
+```{r historicalrates}
+
+#list of all Councils containing tibbles for min,max, avg current values
+#list separated into two sections (Code_9 and Standard), then by Council Area
+all_rates <- get_prev_7yr_rates(tib_FY_CA, CNeeds_list, CA_of_interest, fydate) 
+#create empty list to accept plots and tables
+list_p <- vector(mode = "list", length = length(CA_of_interest))
+list_t <- vector(mode = "list", length = length(CA_of_interest))
+
+plot_table_func_list <- c("create_7yr_plot", "create_7yr_table")
+
+
+for (count in seq_along(CA_of_interest)){ 
+  arglist_i <- list(all_rates, index=count, CNeeds_string="Code 9", CA_of_interest = CA_of_interest[[count]])
+
+list_p[[count]] <- do.call(plot_table_func_list[1], arglist_i)
+list_t[[count]] <- do.call(plot_table_func_list[2], arglist_i)
+}
+
+#########################################################################################
+###  Summary tibbles #####################################################################
+##############################################################################
+# Combines pc_change with previous time point and with last 5 yr Avg
+mon = Report_month
+
+# Combines pc_change with previous time point and with last 5 yr Avg
+
+# Code 9
+##  fytd rate and changes ordered by rank
+fytd_code9_rate_changes <- get_summary_table(mon, CNeeds_string = "Code 9", FYTD = TRUE) %>% 
+  arrange(Rank) %>% 
+  select(-c(pc_change_Avg_5yr))
+
+fytd_code9_rankorder <- fytd_code9_rate_changes %>% select(CouncilArea)
+##  monthly rate and changes ordered by rank of fytd table
+mon_code9_rate_changes <- fytd_code9_rankorder %>% 
+  left_join(.,get_summary_table(mon, CNeeds_string = "Code 9", FYTD = FALSE)) 
+
+
+# Standard
+##  fytd rate and changes
+fytd_standard_rate_changes <- get_summary_table(mon, CNeeds_string = "Standard", FYTD = TRUE) %>% 
+  arrange(Rank) %>% 
+  select(-c(pc_change_Avg_5yr))
+
+fytd_standard_rankorder <- fytd_standard_rate_changes %>% select(CouncilArea)
+##  monthly rate and changes ordered by rank of fytd table
+mon_standard_rate_changes <- fytd_standard_rankorder %>% 
+  left_join(.,get_summary_table(mon, CNeeds_string = "Standard", FYTD = FALSE)) 
+
+```
+
+```{r appendixtables}
+fytd_code9_app <- create_appendix(tib =tib_FY_CA, CNeeds_string = "Code 9", fydate=fydate, mon = Report_month, FYTD_flag = TRUE)
+
+mon_code9_app <- create_appendix(tib =tib_FY_CA, CNeeds_string = "Code 9", fydate=fydate, mon = Report_month, FYTD_flag = FALSE)
+
+fytd_standard_app <- create_appendix(tib =tib_FY_CA, CNeeds_string = "Standard", fydate=fydate, mon = Report_month, FYTD_flag = TRUE)
+
+mon_standard_app <- create_appendix(tib =tib_FY_CA, CNeeds_string = "Standard", fydate=fydate, mon = Report_month, FYTD_flag = FALSE)
+```
+
+## Code 9 Results {.tabset}
+
+### `r Report_month`
+
+```{r}
+create_current_rateplot(tib=tib_FY_CA, CNeeds_string = "Code 9", fydate = fydate, mon = Report_month, FYTD_flag = FALSE)
+
+```
+
+### FY to Date
+
+```{r}
+create_current_rateplot(tib=tib_FY_CA, CNeeds_string = "Code 9", fydate = fydate, mon=Report_month, FYTD_flag = TRUE)
+```
+
+### `r CA_of_interest[1]`
+
+```{r}
+list_p[[1]]
+list_t[[1]]
+  
+```
+
+### `r CA_of_interest[2]`
+
+```{r}
+list_p[[2]]
+list_t[[2]]
+  
+```
+
+### `r CA_of_interest[3]`
+
+```{r}
+list_p[[3]]
+list_t[[3]]
+  
+```
+
+### `r CA_of_interest[4]`
+
+```{r}
+list_p[[4]]
+list_t[[4]]
+  
+```
+
+### `r CA_of_interest[5]`
+
+```{r}
+list_p[[5]]
+list_t[[5]]
+  
+```
+
+### `r CA_of_interest[6]`
+
+```{r}
+list_p[[6]]
+list_t[[6]]
+  
+```
+
+### `r CA_of_interest[7]`
+
+```{r}
+list_p[[7]]
+list_t[[7]]
+  
+```
+
+```{r}
+
+```
+
+
+## Standard Results {.tabset}
+
+```{r}
+for (count in seq_along(CA_of_interest)){ 
+  arglist_i <- list(all_rates, index=count, CNeeds_string="Standard", CA_of_interest = CA_of_interest[count])
+
+list_p[[count]] <- do.call(plot_table_func_list[1], arglist_i)
+list_t[[count]] <- do.call(plot_table_func_list[2], arglist_i)
+}
+```
+
+### `r Report_month`
+
+```{r}
+create_current_rateplot(tib=tib_FY_CA, CNeeds_string = "Standard", fydate = "2122", mon = Report_month)
+```
+
+### FY to Date
+
+```{r}
+create_current_rateplot(tib=tib_FY_CA, CNeeds_string = "Standard", fydate = 2122, mon=Report_month, FYTD_flag = TRUE)
+```
+
+### `r CA_of_interest[1]`
+
+```{r}
+list_p[[1]]
+list_t[[1]]
+  
+```
+
+### `r CA_of_interest[2]`
+
+```{r}
+list_p[[2]]
+list_t[[2]]
+  
+```
+
+### `r CA_of_interest[3]`
+
+```{r}
+list_p[[3]]
+list_t[[3]]
+  
+```
+
+### `r CA_of_interest[4]`
+
+```{r}
+list_p[[4]]
+list_t[[4]]
+  
+```
+
+### `r CA_of_interest[5]`
+
+```{r}
+list_p[[5]]
+list_t[[5]]
+  
+```
+
+### `r CA_of_interest[6]`
+
+```{r}
+list_p[[6]]
+list_t[[6]]
+  
+```
+
+### `r CA_of_interest[7]`
+
+```{r}
+list_p[[7]]
+list_t[[7]]
+  
+```
+
+
+
