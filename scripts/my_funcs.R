@@ -229,8 +229,8 @@ join_current_prec_tibbles <- function(tib, CNeeds_string,
 }
 
 create_appendix <- function(tib=tib_FY_CA, CNeeds_string, fydate, mon, FYTD_flag) {
-  get_group_bed_rates(tib, CNeeds_string, fydate, mon, FYTD_flag) %>%
-    filter(CouncilArea != "Scotland"|CouncilArea != "Other") %>%  
+  get_group_bed_rates(tib, CNeeds_string, fydate, mon, FYTD_flag) %>% 
+    filter(!CouncilArea %in% c("Scotland","Other")) %>%  
     left_join(., get_rank(tib, CNeeds_string, fydate, mon, FYTD_flag), by = "CouncilArea") %>% 
     arrange(Rank) %>% 
     select(-c(FY))
@@ -330,7 +330,7 @@ create_CArate_plot <- function(df, CNeeds_string, fydate, mon, FYTD_flag, g_rate
 }
 
 
-create_current_rateplot <- function(tib, CNeeds_string, fydate, mon, FYTD_flag=FALSE) {
+get_scot_ggc_CA_rates <- function(tib, CNeeds_string, fydate, mon, FYTD_flag=FALSE) {
   ## create CAs plot automatically according to flags 
   
   #scot_rate and ggc_rate are lists containing the numeric value and the displayed char value to 1 dp
@@ -350,8 +350,9 @@ create_current_rateplot <- function(tib, CNeeds_string, fydate, mon, FYTD_flag=F
   all_CA_rates <-  get_group_bed_rates(tib, CNeeds_string, fydate, mon, FYTD_flag) %>%
     filter(CouncilArea != "Scotland")
   
+  list(scot_rate, ggc_rate, all_CA_rates)
   # # plot horizontal column plot
-  create_CArate_plot(df=all_CA_rates, CNeeds_string, fydate, mon, FYTD_flag, g_rate = ggc_rate, s_rate = scot_rate)
+ # create_CArate_plot(df=all_CA_rates, CNeeds_string, fydate, mon, FYTD_flag, g_rate = ggc_rate, s_rate = scot_rate)
 }
 
 create_7yr_plot <- function(tibble_name = all_rates, index=NULL, CNeeds_string=NULL, CA_of_interest) {
@@ -662,5 +663,17 @@ get_pc_change_prev_time(tib_FY_CA, CNeeds_string, fydate, mon, FYTD_flag, pop_ob
   relocate(Rank, .after = "CouncilArea") 
 }
 # ---------------------------------------------------
-
+get_written_summary_data <- function(tib) {
+  ggc_higher_scot_rates <- tib[[3]]%>% 
+    filter(GGCRegion == TRUE) %>% 
+    filter(Rate > tib[[1]])
+  
+  count = nrow(ggc_higher_scot_rates)
+  
+  regions <- ggc_higher_scot_rates %>% 
+    select(CouncilArea) %>% 
+    pull()
+  
+  list(count, regions)
+}
 

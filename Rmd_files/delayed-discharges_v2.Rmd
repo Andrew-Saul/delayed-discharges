@@ -22,7 +22,7 @@ if(!require(librarian)){
   library(librarian)
 }
 
-librarian::shelf(tidyverse, here, fs, rvest ,xml2, openxlsx, lubridate, readxl, janitor, glue, rlang, plotly, ggtext, kableExtra)
+librarian::shelf(tidyverse, here, fs, rvest ,xml2, openxlsx, lubridate, readxl, janitor, glue, plotly, ggtext, kableExtra, gt,)
 source(here::here("scripts", "my_funcs.R"))
 source(here::here("scripts", "populations.R"))
 ```
@@ -33,6 +33,7 @@ Report_year <- 2022
 
 # Current FY
 fydate <- convert_calender_to_FY(Report_year, Report_month)
+fydate_text <- seperate_years_by_slash(fydate)
 
 # council areas of interest
 CA_of_interest <- c("Scotland", "East Dunbartonshire", "East Renfrewshire", "Glasgow City", "Inverclyde", "Renfrewshire", "West Dunbartonshire") %>% 
@@ -112,25 +113,53 @@ for (count in seq_along(CA_of_interest)){
 list_p[[count]] <- do.call(plot_table_func_list[1], arglist_i)
 list_t[[count]] <- do.call(plot_table_func_list[2], arglist_i)
 }
+```
 
+```{r tabledata}
+# data used for first 2 tabs and for summary stats
+scot_ggc_code9_mon <- get_scot_ggc_CA_rates(tib=tib_FY_CA, CNeeds_string = "Code 9", fydate=fydate, mon=Report_month, FYTD_flag=FALSE)
+
+scot_ggc_code9_fytd <- get_scot_ggc_CA_rates(tib=tib_FY_CA, CNeeds_string = "Code 9", fydate=fydate, mon=Report_month, FYTD_flag=TRUE)
+
+scot_ggc_standard_mon <- get_scot_ggc_CA_rates(tib=tib_FY_CA, CNeeds_string = "Standard", fydate=fydate, mon=Report_month, FYTD_flag=FALSE)
+
+scot_ggc_standard_fytd <- get_scot_ggc_CA_rates(tib=tib_FY_CA, CNeeds_string = "Standard", fydate=fydate, mon=Report_month, FYTD_flag=TRUE)
+```
+
+```{r summarystats}
+# Code 9
+## fytd : how many have rates above scot avg? which are they
+
+
+## mon : how many have rates above scot avg? which are they
+
+
+# Standard (as above)
+## 
+
+```
+
+
+```{r }
 #########################################################################################
 ###  Summary tibbles #####################################################################
 ##############################################################################
 # Combines pc_change with previous time point and with last 5 yr Avg
-mon = Report_month
+mon = Report_month 
 
-# Combines pc_change with previous time point and with last 5 yr Avg
-
+# tables arranged by rank
 # Code 9
 ##  fytd rate and changes ordered by rank
 fytd_code9_rate_changes <- get_summary_table(mon, CNeeds_string = "Code 9", FYTD = TRUE) %>% 
   arrange(Rank) %>% 
   select(-c(pc_change_Avg_5yr))
 
-fytd_code9_rankorder <- fytd_code9_rate_changes %>% select(CouncilArea)
-##  monthly rate and changes ordered by rank of fytd table
-mon_code9_rate_changes <- fytd_code9_rankorder %>% 
-  left_join(.,get_summary_table(mon, CNeeds_string = "Code 9", FYTD = FALSE)) 
+# fytd_code9_rankorder <- fytd_code9_rate_changes %>% select(CouncilArea)
+# ##  monthly rate and changes ordered by rank of fytd table
+# mon_code9_rate_changes <- fytd_code9_rankorder %>% 
+#   left_join(.,get_summary_table(mon, CNeeds_string = "Code 9", FYTD = FALSE)) 
+mon_code9_rate_changes <- get_summary_table(mon, CNeeds_string = "Code 9", FYTD = FALSE) %>% 
+  arrange(Rank)
 
 
 # Standard
@@ -139,12 +168,18 @@ fytd_standard_rate_changes <- get_summary_table(mon, CNeeds_string = "Standard",
   arrange(Rank) %>% 
   select(-c(pc_change_Avg_5yr))
 
-fytd_standard_rankorder <- fytd_standard_rate_changes %>% select(CouncilArea)
-##  monthly rate and changes ordered by rank of fytd table
-mon_standard_rate_changes <- fytd_standard_rankorder %>% 
-  left_join(.,get_summary_table(mon, CNeeds_string = "Standard", FYTD = FALSE)) 
+# fytd_standard_rankorder <- fytd_standard_rate_changes %>% select(CouncilArea)
+# ##  monthly rate and changes ordered by rank of fytd table
+# mon_standard_rate_changes <- fytd_standard_rankorder %>% 
+#   left_join(.,get_summary_table(mon, CNeeds_string = "Standard", FYTD = FALSE)) 
+
+mon_standard_rate_changes <- get_summary_table(mon, CNeeds_string = "Standard", FYTD = FALSE) %>% 
+     arrange(Rank)                           
 
 ```
+
+
+
 
 ```{r appendixtables}
 fytd_code9_app <- create_appendix(tib =tib_FY_CA, CNeeds_string = "Code 9", fydate=fydate, mon = Report_month, FYTD_flag = TRUE)
@@ -161,14 +196,16 @@ mon_standard_app <- create_appendix(tib =tib_FY_CA, CNeeds_string = "Standard", 
 ### `r Report_month`
 
 ```{r}
-create_current_rateplot(tib=tib_FY_CA, CNeeds_string = "Code 9", fydate = fydate, mon = Report_month, FYTD_flag = FALSE)
+create_CArate_plot(scot_ggc_code9_mon[[3]], CNeeds_string = "Code 9", fydate = fydate, mon = Report_month, FYTD_flag = FALSE,
+                   g_rate = scot_ggc_code9_mon[[2]], s_rate = scot_ggc_code9_mon[[1]]) 
 
 ```
 
 ### FY to Date
 
 ```{r}
-create_current_rateplot(tib=tib_FY_CA, CNeeds_string = "Code 9", fydate = fydate, mon=Report_month, FYTD_flag = TRUE)
+create_CArate_plot(scot_ggc_code9_mon[[3]], CNeeds_string = "Code 9", fydate = fydate, mon = Report_month, FYTD_flag = TRUE,
+                   g_rate = scot_ggc_code9_mon[[2]], s_rate = scot_ggc_code9_mon[[1]]) 
 ```
 
 ### `r CA_of_interest[1]`
@@ -227,8 +264,34 @@ list_t[[7]]
   
 ```
 
-```{r}
+### Summary Statistics – Delayed Discharge Bed Days (Code 9 Delays)
 
+#### Financial Year to Date
+A total of  `r get_written_summary_data(scot_ggc_code9_fytd)[[1]]` of 6 NHSGGC HSCPs have rates above the Scotland average. <br /> 
+`r if (get_written_summary_data(scot_ggc_code9_fytd)[[1]]>0) {paste("They are",paste0( get_written_summary_data(scot_ggc_code9_fytd)[[2]], collapse = ", "))}`.
+
+
+```{r}
+gt(fytd_code9_rate_changes)
+```
+
+#### Current Month
+A total of  `r get_written_summary_data(scot_ggc_code9_mon)[[1]]` of 6 NHSGGC HSCPs have rates above the Scotland average. <br /> 
+`r if (get_written_summary_data(scot_ggc_code9_mon)[[1]]>0) {paste("They are",paste0( get_written_summary_data(scot_ggc_code9_mon)[[2]], collapse = ", "))}`.
+
+```{r}
+gt(mon_code9_rate_changes)
+```
+
+### Appendix 1 : HSCP Rankings for Financial Year to date `r fydate_text` (April 2021 to `r Report_month` `r Report_year`)
+
+```{r}
+gt(fytd_code9_app)
+```
+
+### Appendix 2: HSCP Rankings for `r Report_month` `r Report_year`
+```{r}
+gt(mon_code9_app)
 ```
 
 
@@ -246,13 +309,15 @@ list_t[[count]] <- do.call(plot_table_func_list[2], arglist_i)
 ### `r Report_month`
 
 ```{r}
-create_current_rateplot(tib=tib_FY_CA, CNeeds_string = "Standard", fydate = "2122", mon = Report_month)
+create_CArate_plot(scot_ggc_standard_mon[[3]], CNeeds_string = "Standard", fydate = fydate, mon = Report_month, FYTD_flag = FALSE,
+                   g_rate = scot_ggc_standard_mon[[2]], s_rate = scot_ggc_standard_mon[[1]]) 
 ```
 
 ### FY to Date
 
 ```{r}
-create_current_rateplot(tib=tib_FY_CA, CNeeds_string = "Standard", fydate = 2122, mon=Report_month, FYTD_flag = TRUE)
+create_CArate_plot(scot_ggc_standard_fytd[[3]], CNeeds_string = "Standard", fydate = fydate, mon = Report_month, FYTD_flag = TRUE,
+                   g_rate = scot_ggc_standard_fytd[[2]], s_rate = scot_ggc_standard_fytd[[1]]) 
 ```
 
 ### `r CA_of_interest[1]`
@@ -311,5 +376,32 @@ list_t[[7]]
   
 ```
 
+### Summary Statistics – Delayed Discharge Bed Days (Standard Delays)
+
+#### Financial Year to Date
+A total of  `r get_written_summary_data(scot_ggc_standard_fytd)[[1]]` of 6 NHSGGC HSCPs have rates above the Scotland average. <br /> 
+`r if (get_written_summary_data(scot_ggc_standard_fytd)[[1]]>0) {paste("They are",paste0( get_written_summary_data(scot_ggc_standard_fytd)[[2]], collapse = ", "))}`.
+
+
+```{r}
+gt(fytd_standard_rate_changes)
+```
+
+#### Current Month
+A total of  `r get_written_summary_data(scot_ggc_standard_mon)[[1]]` of 6 NHSGGC HSCPs have rates above the Scotland average. <br /> `r if (get_written_summary_data(scot_ggc_standard_mon)[[1]]>0) {paste("They are",paste0( get_written_summary_data(scot_ggc_standard_mon)[[2]], collapse = ", "))}`.
+```{r}
+gt(mon_standard_rate_changes)
+```
+
+### Appendix 1 : HSCP Rankings for Financial Year to date `r fydate_text` (April 2021 to `r Report_month` `r Report_year`)
+
+```{r}
+gt(fytd_standard_app)
+```
+
+### Appendix 2: HSCP Rankings for `r Report_month` `r Report_year`
+```{r}
+gt(mon_standard_app)
+```
 
 
