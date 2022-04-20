@@ -1,14 +1,21 @@
 ---
-title: "Untitled"
-author: "Andrew Saul"
-date: "14/02/2022"
+title: "Delayed Discharge Bed Days"
 output: html_document
 editor_options: 
   chunk_output_type: console
 ---
 
-- Need to check 20/21 FY to date rates
-- Need to get 5yr avg rates
+**CAVEATS:**
+
+Data Source: Delayed discharges in NHSScotland monthly up to January 2022.
+
+Delayed discharge bed day rates are reported separately for Standard delays and Code 9 delays for those aged 18+ and are based on HSCP of residence.
+
+Greater Glasgow and Clyde figures (GGC HSCPs) are the sum of all six GGC HSCPs and are based on residents of NHSGGC only.
+
+Rates are calculated using the NRS Mid-Year Population Estimates for those aged 18+ (2020 population estimates are used for calculating the 2021/22 rates).
+
+Scotland figures are an aggregate of local authority data, along with data reported under ‘Other’ responsible local authority (not applicable for Code 9s).
 
 
 ```{r setup, include=FALSE}
@@ -22,7 +29,7 @@ if(!require(librarian)){
   library(librarian)
 }
 
-librarian::shelf(tidyverse, here, fs, rvest ,xml2, openxlsx, lubridate, readxl, janitor, glue, plotly, ggtext, kableExtra, gt,)
+librarian::shelf(tidyverse, here, fs, rvest ,xml2, openxlsx, lubridate, readxl, janitor, glue, plotly, ggtext, kableExtra, gt, rlang)
 source(here::here("scripts", "my_funcs.R"))
 source(here::here("scripts", "populations.R"))
 ```

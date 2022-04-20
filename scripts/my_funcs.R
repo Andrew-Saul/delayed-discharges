@@ -377,7 +377,7 @@ create_7yr_plot <- function(tibble_name = all_rates, index=NULL, CNeeds_string=N
     # the labels must match what you specified above
     scale_fill_manual(name = "", labels = c("Prev Min-Max"), values = c("Prev Min-Max" = "grey"), breaks = "Prev Min-Max") +
     
-    scale_color_manual(name = "", labels = c("Prev 5yr Avg", glue("FY = {FY_label}")), values = c("blue", "green"), breaks = c("5yr Avg Value", "current"))+
+    scale_color_manual(name = "", labels = c("Prev 5yr Avg", glue("FY = {FY_label}")), values = c("blue", "magenta"), breaks = c("5yr Avg Value", "current"))+
     
     labs(title = str_wrap(glue("{CA_of_interest} : Monthly Bed Days Rate (per 100,000) with Previous 5-Year Average Comparison (2015/16-2019/20) - {CNeeds_string} ")),
          y = str_wrap("Delayed Discharge Bed Days Rate (per 100,000 population)", width = 30),
