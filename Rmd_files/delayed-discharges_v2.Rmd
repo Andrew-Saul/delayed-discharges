@@ -289,7 +289,7 @@ A total of  `r get_written_summary_data(scot_ggc_code9_fytd)[[1]]` of 6 NHSGGC H
 
 
 ```{r}
-create_fytd_dd_plot(tib =fytd_code9_rate_changes, title_name = "**FYTD – Delayed Discharge Bed Days (Code 9 Delays)**")
+create_fytd_dd_table(tib =fytd_code9_rate_changes, title_name = "**FYTD – Delayed Discharge Bed Days (Code 9 Delays)**")
 
 ```
 
@@ -298,14 +298,14 @@ A total of  `r get_written_summary_data(scot_ggc_code9_mon)[[1]]` of 6 NHSGGC HS
 `r if (get_written_summary_data(scot_ggc_code9_mon)[[1]]>0) {paste("They are",paste0( get_written_summary_data(scot_ggc_code9_mon)[[2]], collapse = ", "))}`.
 
 ```{r}
-create_month_dd_plot(tib =mon_code9_rate_changes, title_name = "**{params$Report_month} {params$Report_year}– Delayed Discharge Bed Days (Code 9 Delays)**")
+create_month_dd_table(tib =mon_code9_rate_changes, title_name = "**{params$Report_month} {params$Report_year}– Delayed Discharge Bed Days (Code 9 Delays)**")
 ```
 
 ### Appendix 1 : HSCP Rankings for Financial Year to date `r fydate_text` (April 2021 to `r params$Report_month` `r params$Report_year`)
 
 ```{r}
-gt(fytd_code9_app) %>% 
-  tab_header(title = md(glue("**Appendix 1 : HSCP Rankings for Financial Year to date 20{fydate_text} (April 2021 to {params$Report_month} {params$Report_year})**")))
+create_appendix1(fytd_code9_app)
+
 ```
 
 ### Appendix 2: HSCP Rankings for `r params$Report_month` `r params$Report_year`
@@ -403,21 +403,22 @@ A total of  `r get_written_summary_data(scot_ggc_standard_fytd)[[1]]` of 6 NHSGG
 
 
 ```{r}
-create_fytd_dd_plot(tib =fytd_standard_rate_changes, title_name = "**FYTD – Delayed Discharge Bed Days (Standard Delays)**")
+create_fytd_dd_table(tib =fytd_standard_rate_changes, title_name = "**FYTD – Delayed Discharge Bed Days (Standard Delays)**")
 
 ```
 
 #### Current Month
 A total of  `r get_written_summary_data(scot_ggc_standard_mon)[[1]]` of 6 NHSGGC HSCPs have rates above the Scotland average. <br /> `r if (get_written_summary_data(scot_ggc_standard_mon)[[1]]>0) {paste("They are",paste0( get_written_summary_data(scot_ggc_standard_mon)[[2]], collapse = ", "))}`.
 ```{r}
-create_month_dd_plot(tib =mon_standard_rate_changes, title_name = "**{params$Report_month} {params$Report_year}– Delayed Discharge Bed Days (Standard Delays)**")
+create_month_dd_table(tib =mon_standard_rate_changes, title_name = "**{params$Report_month} {params$Report_year}– Delayed Discharge Bed Days (Standard Delays)**")
 
 ```
 
 ### Appendix 1 : HSCP Rankings for Financial Year to date `r fydate_text` (April 2021 to `r params$Report_month` `r params$Report_year`)
 
 ```{r}
-gt(fytd_standard_app)
+create_appendix1(fytd_standard_app)
+
 ```
 
 ### Appendix 2: HSCP Rankings for `r params$Report_month` `r params$Report_year`

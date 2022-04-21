@@ -329,7 +329,7 @@ create_CArate_plot <- function(df, CNeeds_string, fydate, mon, FYTD_flag, g_rate
   p
 }
 
-create_fytd_dd_plot <- function(tib, title_name){
+create_fytd_dd_table <- function(tib, title_name){
   tib %>%
     gt(rowname_col = "CouncilArea") %>%
       tab_header(title = md(glue(title_name))) %>%
@@ -364,7 +364,7 @@ create_fytd_dd_plot <- function(tib, title_name){
       opt_align_table_header(align="left")
 }
 
-create_month_dd_plot <- function(tib, title_name){
+create_month_dd_table <- function(tib, title_name){
   tib %>%
     gt(rowname_col = "CouncilArea") %>%
     tab_header(title = md(glue(title_name))) %>%
@@ -719,6 +719,8 @@ get_all_5yr_stats <- function(tib=all_rates, CNeeds_string, CA_list, mon) {
   
 }
 
+# calculate % change of the combined GGC HSCPs of current value compared to the prev 5 year avg 
+# Excludes year 20/21
 aggregate_5yr_ggc <- function(tib=all_rates, CNeeds_string, CA_no_Scotland, mon) {
   map_df(CA_no_Scotland, ~get_5yr_comparisons(tib, CNeeds_string, CA=.x, mon)) %>% 
     bind_cols(CouncilArea = names(CA_no_Scotland)) %>% 
@@ -729,6 +731,8 @@ aggregate_5yr_ggc <- function(tib=all_rates, CNeeds_string, CA_no_Scotland, mon)
     select(CouncilArea, pc_change_Avg_5yr)
 }   
 
+# calculates % change of current vs prev 5 year avg for GGC regions and Scotland
+# Excludes year 20/21
 get_all_5yr_rates <- function(tib=all_rates, CNeeds_string, CA_list, CA_no_Scotland, mon) {
    get_all_5yr_stats(tib=all_rates, CNeeds_string, CA_list, mon) %>% 
     bind_rows(., aggregate_5yr_ggc(tib=all_rates, CNeeds_string, CA_no_Scotland, mon))
@@ -756,3 +760,28 @@ get_written_summary_data <- function(tib) {
   list(count, regions)
 }
 
+create_appendix1 <- function(tib){
+  tib %>%
+    select(-GGCRegion) %>% 
+    gt(rowname_col = "CouncilArea") %>%
+    tab_header(title = md(glue("**HSCP Rankings for Financial Year to date {fydate_text} (April 2021 to {params$Report_month} {params$Report_year})**"))) %>% 
+    cols_label(Rate = md("Rate <br> (per 100,000)"),
+               Pop = md("Population")
+    ) %>%
+    fmt_integer(columns = c(Counts, Pop, Rank)) %>%
+    fmt_number(columns = Rate, decimals = 1) %>%
+    cols_width(
+      Rank ~ px(50),
+      Rate ~ px(120),
+      Counts ~ px(100),
+      Pop ~ px(120),
+      everything() ~ px(250)
+    ) %>% 
+    tab_style(
+      locations = cells_body(
+        columns = everything(),
+        rows = c(CA_no_Scotland)
+      ),
+      style = cell_fill(color = "#9cc951")
+    )
+}
