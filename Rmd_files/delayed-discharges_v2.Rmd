@@ -1,27 +1,16 @@
 ---
 title: "Delayed Discharge Bed Days"
 output: html_document
+params:
+  Report_month: "February"
+  Report_year: 2022
 editor_options: 
   chunk_output_type: console
 ---
 
-**CAVEATS:**
-
-Data Source: Delayed discharges in NHSScotland monthly up to January 2022.
-
-Delayed discharge bed day rates are reported separately for Standard delays and Code 9 delays for those aged 18+ and are based on HSCP of residence.
-
-Greater Glasgow and Clyde figures (GGC HSCPs) are the sum of all six GGC HSCPs and are based on residents of NHSGGC only.
-
-Rates are calculated using the NRS Mid-Year Population Estimates for those aged 18+ (2020 population estimates are used for calculating the 2021/22 rates).
-
-Scotland figures are an aggregate of local authority data, along with data reported under ‘Other’ responsible local authority (not applicable for Code 9s).
-
-
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, fig.width = 10, fig.height = 6)
 ```
-
 
 ```{r include = "FALSE"} 
 if(!require(librarian)){
@@ -33,13 +22,33 @@ librarian::shelf(tidyverse, here, fs, rvest ,xml2, openxlsx, lubridate, readxl, 
 source(here::here("scripts", "my_funcs.R"))
 source(here::here("scripts", "populations.R"))
 ```
+**NOTES**
+
+Data Source:
+
+```{r results='asis', echo=FALSE}
+http_address <- glue("https://publichealthscotland.scot/publications/delayed-discharges-in-nhsscotland-monthly/delayed-discharges-in-nhsscotland-monthly-figures-for-{params$Report_month}-{params$Report_year}/#section-1")
+
+```
+
+[Delayed discharges in NHSScotland monthly up to `r params$Report_month` `r params$Report_year`.](`r http_address`)   
+<br>
+Figures reflect **Code 9 delays**  and **standard delays** (excluding code 9s) for those aged 18+ and are based on HSCP of
+residence. Code 9 delays include delays for Adults with Incapacity (AWIs).    
+<br>
+Greater Glasgow and Clyde figures (GGC HSCPs) are the sum of all six GGC HSCPs and are based on residents of NHSGGC only.  
+<br>
+Rates are calculated using the NRS Mid-Year Population Estimates for those aged
+18+ (2020 population estimates are used for calculating the 2021/22 rates).  
+<br>
+Scotland figures are an aggregate of local authority data. ‘Other’ local authority
+does not apply to Code 9 delays.  
+
 
 ```{r variables}
-Report_month <- "January"
-Report_year <- 2022
 
 # Current FY
-fydate <- convert_calender_to_FY(Report_year, Report_month)
+fydate <- convert_calender_to_FY(params$Report_year, params$Report_month)
 fydate_text <- seperate_years_by_slash(fydate)
 
 # council areas of interest
@@ -52,6 +61,7 @@ CA_no_Scotland <- c("East Dunbartonshire", "East Renfrewshire", "Glasgow City", 
 CNeeds_list <- c("Code 9", "Standard") %>%
   set_names(.)
 ```
+
 
 
 ```{r historical-stats}
@@ -70,7 +80,7 @@ LA_pop_18plus <- getLAPops(age_lowest = 18)
 #file downloaded from NRS website if filename not present in data folder
 data_filename <- "beddays"
 #if(!file_exists(here::here("data", glue("{data_filename}.xlsx")))){
-download_data(filename = data_filename, month=Report_month, year=Report_year)
+download_data(filename = data_filename, month=params$Report_month, year=params$Report_year)
 
 ```
 
@@ -115,7 +125,7 @@ plot_table_func_list <- c("create_7yr_plot", "create_7yr_table")
 
 
 for (count in seq_along(CA_of_interest)){ 
-  arglist_i <- list(all_rates, index=count, CNeeds_string="Code 9", CA_of_interest = CA_of_interest[[count]])
+  arglist_i <- list(all_rates, index=count, CNeeds_string="Code 9", CA_of_interest = CA_of_interest[count])
 
 list_p[[count]] <- do.call(plot_table_func_list[1], arglist_i)
 list_t[[count]] <- do.call(plot_table_func_list[2], arglist_i)
@@ -124,13 +134,13 @@ list_t[[count]] <- do.call(plot_table_func_list[2], arglist_i)
 
 ```{r tabledata}
 # data used for first 2 tabs and for summary stats
-scot_ggc_code9_mon <- get_scot_ggc_CA_rates(tib=tib_FY_CA, CNeeds_string = "Code 9", fydate=fydate, mon=Report_month, FYTD_flag=FALSE)
+scot_ggc_code9_mon <- get_scot_ggc_CA_rates(tib=tib_FY_CA, CNeeds_string = "Code 9", fydate=fydate, mon=params$Report_month, FYTD_flag=FALSE)
 
-scot_ggc_code9_fytd <- get_scot_ggc_CA_rates(tib=tib_FY_CA, CNeeds_string = "Code 9", fydate=fydate, mon=Report_month, FYTD_flag=TRUE)
+scot_ggc_code9_fytd <- get_scot_ggc_CA_rates(tib=tib_FY_CA, CNeeds_string = "Code 9", fydate=fydate, mon=params$Report_month, FYTD_flag=TRUE)
 
-scot_ggc_standard_mon <- get_scot_ggc_CA_rates(tib=tib_FY_CA, CNeeds_string = "Standard", fydate=fydate, mon=Report_month, FYTD_flag=FALSE)
+scot_ggc_standard_mon <- get_scot_ggc_CA_rates(tib=tib_FY_CA, CNeeds_string = "Standard", fydate=fydate, mon=params$Report_month, FYTD_flag=FALSE)
 
-scot_ggc_standard_fytd <- get_scot_ggc_CA_rates(tib=tib_FY_CA, CNeeds_string = "Standard", fydate=fydate, mon=Report_month, FYTD_flag=TRUE)
+scot_ggc_standard_fytd <- get_scot_ggc_CA_rates(tib=tib_FY_CA, CNeeds_string = "Standard", fydate=fydate, mon=params$Report_month, FYTD_flag=TRUE)
 ```
 
 ```{r summarystats}
@@ -152,7 +162,7 @@ scot_ggc_standard_fytd <- get_scot_ggc_CA_rates(tib=tib_FY_CA, CNeeds_string = "
 ###  Summary tibbles #####################################################################
 ##############################################################################
 # Combines pc_change with previous time point and with last 5 yr Avg
-mon = Report_month 
+mon = params$Report_month 
 
 # tables arranged by rank
 # Code 9
@@ -189,21 +199,21 @@ mon_standard_rate_changes <- get_summary_table(mon, CNeeds_string = "Standard", 
 
 
 ```{r appendixtables}
-fytd_code9_app <- create_appendix(tib =tib_FY_CA, CNeeds_string = "Code 9", fydate=fydate, mon = Report_month, FYTD_flag = TRUE)
+fytd_code9_app <- create_appendix(tib =tib_FY_CA, CNeeds_string = "Code 9", fydate=fydate, mon = params$Report_month, FYTD_flag = TRUE)
 
-mon_code9_app <- create_appendix(tib =tib_FY_CA, CNeeds_string = "Code 9", fydate=fydate, mon = Report_month, FYTD_flag = FALSE)
+mon_code9_app <- create_appendix(tib =tib_FY_CA, CNeeds_string = "Code 9", fydate=fydate, mon = params$Report_month, FYTD_flag = FALSE)
 
-fytd_standard_app <- create_appendix(tib =tib_FY_CA, CNeeds_string = "Standard", fydate=fydate, mon = Report_month, FYTD_flag = TRUE)
+fytd_standard_app <- create_appendix(tib =tib_FY_CA, CNeeds_string = "Standard", fydate=fydate, mon = params$Report_month, FYTD_flag = TRUE)
 
-mon_standard_app <- create_appendix(tib =tib_FY_CA, CNeeds_string = "Standard", fydate=fydate, mon = Report_month, FYTD_flag = FALSE)
+mon_standard_app <- create_appendix(tib =tib_FY_CA, CNeeds_string = "Standard", fydate=fydate, mon = params$Report_month, FYTD_flag = FALSE)
 ```
 
 ## Code 9 Results {.tabset}
 
-### `r Report_month`
+### `r params$Report_month`
 
 ```{r}
-create_CArate_plot(scot_ggc_code9_mon[[3]], CNeeds_string = "Code 9", fydate = fydate, mon = Report_month, FYTD_flag = FALSE,
+create_CArate_plot(scot_ggc_code9_mon[[3]], CNeeds_string = "Code 9", fydate = fydate, mon = params$Report_month, FYTD_flag = FALSE,
                    g_rate = scot_ggc_code9_mon[[2]], s_rate = scot_ggc_code9_mon[[1]]) 
 
 ```
@@ -211,8 +221,8 @@ create_CArate_plot(scot_ggc_code9_mon[[3]], CNeeds_string = "Code 9", fydate = f
 ### FY to Date
 
 ```{r}
-create_CArate_plot(scot_ggc_code9_mon[[3]], CNeeds_string = "Code 9", fydate = fydate, mon = Report_month, FYTD_flag = TRUE,
-                   g_rate = scot_ggc_code9_mon[[2]], s_rate = scot_ggc_code9_mon[[1]]) 
+create_CArate_plot(scot_ggc_code9_fytd[[3]], CNeeds_string = "Code 9", fydate = fydate, mon = params$Report_month, FYTD_flag = TRUE,
+                   g_rate = scot_ggc_code9_fytd[[2]], s_rate = scot_ggc_code9_fytd[[1]]) 
 ```
 
 ### `r CA_of_interest[1]`
@@ -279,7 +289,8 @@ A total of  `r get_written_summary_data(scot_ggc_code9_fytd)[[1]]` of 6 NHSGGC H
 
 
 ```{r}
-gt(fytd_code9_rate_changes)
+create_fytd_dd_plot(tib =fytd_code9_rate_changes, title_name = "**FYTD – Delayed Discharge Bed Days (Code 9 Delays)**")
+
 ```
 
 #### Current Month
@@ -287,16 +298,17 @@ A total of  `r get_written_summary_data(scot_ggc_code9_mon)[[1]]` of 6 NHSGGC HS
 `r if (get_written_summary_data(scot_ggc_code9_mon)[[1]]>0) {paste("They are",paste0( get_written_summary_data(scot_ggc_code9_mon)[[2]], collapse = ", "))}`.
 
 ```{r}
-gt(mon_code9_rate_changes)
+create_month_dd_plot(tib =mon_code9_rate_changes, title_name = "**{params$Report_month} {params$Report_year}– Delayed Discharge Bed Days (Code 9 Delays)**")
 ```
 
-### Appendix 1 : HSCP Rankings for Financial Year to date `r fydate_text` (April 2021 to `r Report_month` `r Report_year`)
+### Appendix 1 : HSCP Rankings for Financial Year to date `r fydate_text` (April 2021 to `r params$Report_month` `r params$Report_year`)
 
 ```{r}
-gt(fytd_code9_app)
+gt(fytd_code9_app) %>% 
+  tab_header(title = md(glue("**Appendix 1 : HSCP Rankings for Financial Year to date 20{fydate_text} (April 2021 to {params$Report_month} {params$Report_year})**")))
 ```
 
-### Appendix 2: HSCP Rankings for `r Report_month` `r Report_year`
+### Appendix 2: HSCP Rankings for `r params$Report_month` `r params$Report_year`
 ```{r}
 gt(mon_code9_app)
 ```
@@ -313,17 +325,17 @@ list_t[[count]] <- do.call(plot_table_func_list[2], arglist_i)
 }
 ```
 
-### `r Report_month`
+### `r params$Report_month`
 
 ```{r}
-create_CArate_plot(scot_ggc_standard_mon[[3]], CNeeds_string = "Standard", fydate = fydate, mon = Report_month, FYTD_flag = FALSE,
+create_CArate_plot(scot_ggc_standard_mon[[3]], CNeeds_string = "Standard", fydate = fydate, mon = params$Report_month, FYTD_flag = FALSE,
                    g_rate = scot_ggc_standard_mon[[2]], s_rate = scot_ggc_standard_mon[[1]]) 
 ```
 
 ### FY to Date
 
 ```{r}
-create_CArate_plot(scot_ggc_standard_fytd[[3]], CNeeds_string = "Standard", fydate = fydate, mon = Report_month, FYTD_flag = TRUE,
+create_CArate_plot(scot_ggc_standard_fytd[[3]], CNeeds_string = "Standard", fydate = fydate, mon = params$Report_month, FYTD_flag = TRUE,
                    g_rate = scot_ggc_standard_fytd[[2]], s_rate = scot_ggc_standard_fytd[[1]]) 
 ```
 
@@ -391,24 +403,39 @@ A total of  `r get_written_summary_data(scot_ggc_standard_fytd)[[1]]` of 6 NHSGG
 
 
 ```{r}
-gt(fytd_standard_rate_changes)
+create_fytd_dd_plot(tib =fytd_standard_rate_changes, title_name = "**FYTD – Delayed Discharge Bed Days (Standard Delays)**")
+
 ```
 
 #### Current Month
 A total of  `r get_written_summary_data(scot_ggc_standard_mon)[[1]]` of 6 NHSGGC HSCPs have rates above the Scotland average. <br /> `r if (get_written_summary_data(scot_ggc_standard_mon)[[1]]>0) {paste("They are",paste0( get_written_summary_data(scot_ggc_standard_mon)[[2]], collapse = ", "))}`.
 ```{r}
-gt(mon_standard_rate_changes)
+create_month_dd_plot(tib =mon_standard_rate_changes, title_name = "**{params$Report_month} {params$Report_year}– Delayed Discharge Bed Days (Standard Delays)**")
+
 ```
 
-### Appendix 1 : HSCP Rankings for Financial Year to date `r fydate_text` (April 2021 to `r Report_month` `r Report_year`)
+### Appendix 1 : HSCP Rankings for Financial Year to date `r fydate_text` (April 2021 to `r params$Report_month` `r params$Report_year`)
 
 ```{r}
 gt(fytd_standard_app)
 ```
 
-### Appendix 2: HSCP Rankings for `r Report_month` `r Report_year`
+### Appendix 2: HSCP Rankings for `r params$Report_month` `r params$Report_year`
 ```{r}
 gt(mon_standard_app)
 ```
 
+```{r}
+temp_func <- function(df, ...){
+  arg_list <- list(...)
+  
+  
+  tmp_list <- list("a","b","c")
+  list_length <- length(tmp_list)
+  for (element in 1:list_length){
+   out <- paste("This is element", element)
+   print(out)
+  }
+}
+```
 

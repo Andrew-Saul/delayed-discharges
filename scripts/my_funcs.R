@@ -329,6 +329,77 @@ create_CArate_plot <- function(df, CNeeds_string, fydate, mon, FYTD_flag, g_rate
   p
 }
 
+create_fytd_dd_plot <- function(tib, title_name){
+  tib %>%
+    gt(rowname_col = "CouncilArea") %>%
+      tab_header(title = md(glue(title_name))) %>%
+      cols_label(Rate = md("Rate <br> (per 100,000)"),
+                 pc_change_prev = md("% Change on <br>previous <br>month")
+                 ) %>%
+      fmt_integer(columns = Rate) %>%
+      fmt_percent(columns = pc_change_prev) %>%
+      cols_width(
+        Rank ~ px(50),
+        Rate ~ px(120),
+        pc_change_prev ~ px(120),
+        everything() ~ px(250)
+      ) %>%
+      tab_style(
+        locations = cells_body(
+          columns = everything(),
+          rows = "GGC HSCPs"
+        ),
+        style = cell_fill(color = "#9cc951")
+      ) %>%
+      tab_style(
+        locations = cells_body(
+          columns = everything(),
+          rows = "Scotland"
+        ),
+        style = list(
+          cell_fill(color = "#3f3685"),
+          cell_text(color = "white")
+        )
+      ) %>%
+      opt_align_table_header(align="left")
+}
+
+create_month_dd_plot <- function(tib, title_name){
+  tib %>%
+    gt(rowname_col = "CouncilArea") %>%
+    tab_header(title = md(glue(title_name))) %>%
+    cols_label(Rate = md("Rate <br> (per 100,000)"),
+               pc_change_prev = md("% Change on <br>previous <br>month"),
+               pc_change_Avg_5yr = md("% Difference to 5-year average")
+              ) %>%
+    fmt_integer(columns = Rate) %>%
+    fmt_percent(columns = c(pc_change_prev, pc_change_Avg_5yr)) %>%
+    cols_width(
+      Rank ~ px(50),
+      Rate ~ px(120),
+      pc_change_prev ~ px(120),
+      pc_change_Avg_5yr ~ px(100),
+      everything() ~ px(250)
+    ) %>%
+    tab_style(
+      locations = cells_body(
+        columns = everything(),
+        rows = "GGC HSCPs"
+      ),
+      style = cell_fill(color = "#9cc951")
+    ) %>%
+    tab_style(
+      locations = cells_body(
+        columns = everything(),
+        rows = "Scotland"
+      ),
+      style = list(
+        cell_fill(color = "#3f3685"),
+        cell_text(color = "white")
+      )
+    ) %>%
+    opt_align_table_header(align="left")
+}
 
 get_scot_ggc_CA_rates <- function(tib, CNeeds_string, fydate, mon, FYTD_flag=FALSE) {
   ## create CAs plot automatically according to flags 
@@ -406,12 +477,20 @@ create_7yr_table <- function(tibble_name = all_rates, index=NULL, CNeeds_string,
   
   fun_df <- tibble_name[[CNeeds_string]][[index]]
   
-  fun_df %>% 
-    select(Month_labels, Current_FY, Current_rate) %>% 
-    pivot_wider(names_from = "Month_labels", values_from = "Current_rate") %>% 
-    mutate(across(Apr:Mar, ~format(round(.x,1)))) %>% 
-    kbl() %>% 
-    kable_styling()
+  temp_df <- fun_df %>% 
+    select(Month_labels, Current_FY, Current_Counts) %>% 
+    pivot_wider(names_from = "Month_labels", values_from = "Current_Counts") %>% 
+    mutate(across(Apr:Mar, ~format(round(.x,1))))  
+    
+  #rename current_FY with slash
+  temp_df$Current_FY <- seperate_years_by_slash(temp_df$Current_FY)
+    
+  temp_df %>% 
+    gt() %>% 
+    tab_header(
+      title = glue("Number of Monthly Bed Days in 20{temp_df$Current_FY}")
+    )
+
 }
 
 # Other functions ------------------------------------------------------
@@ -619,7 +698,7 @@ modify_ggc_join_tibbles <- function(tib){
 get_now_prev_rates <- function(tib){
   tib %>% 
   mutate(Rate = 100000*Counts/Pop, Prev_Rate = 100000*Prev_Counts/Prev_Pop, 
-         pc_change_prev = 100*((Rate-Prev_Rate)/Prev_Rate))
+         pc_change_prev = ((Rate-Prev_Rate)/Prev_Rate))
 }
   # create tibble of CA regions of interest
 #map_df(CA_of_interest, ~get_prev_5yr_avg_rate(tib_FY_CA, .x, fydate, mon="January"))
@@ -627,7 +706,7 @@ get_now_prev_rates <- function(tib){
 get_5yr_comparisons <- function(tib = all_rates, CNeeds_string, CA, mon) {
   tib[[CNeeds_string]][[CA]]%>% 
     filter(Months == mon) %>% 
-    mutate(pc_change_Avg_5yr = 100* ((Current_Counts/Current_Pop) - (Total_Counts/Total_Pop))/(Total_Counts/Total_Pop)) %>% 
+    mutate(pc_change_Avg_5yr = ((Current_Counts/Current_Pop) - (Total_Counts/Total_Pop))/(Total_Counts/Total_Pop)) %>% 
     mutate(CouncilArea = names(CA)) #%>% 
   # select(CouncilArea, pc_change_Avg_5yr)
 }
@@ -640,26 +719,26 @@ get_all_5yr_stats <- function(tib=all_rates, CNeeds_string, CA_list, mon) {
   
 }
 
-aggregate_5yr_ggc <- function(tib=all_rates, CNeeds_string, CA_list, mon) {
-  map_df(CA_list, ~get_5yr_comparisons(tib, CNeeds_string, CA=.x, mon)) %>% 
-    bind_cols(CouncilArea = names(CA_list)) %>% 
+aggregate_5yr_ggc <- function(tib=all_rates, CNeeds_string, CA_no_Scotland, mon) {
+  map_df(CA_no_Scotland, ~get_5yr_comparisons(tib, CNeeds_string, CA=.x, mon)) %>% 
+    bind_cols(CouncilArea = names(CA_no_Scotland)) %>% 
     summarise(Prev_Counts = sum(Total_Counts), Prev_Pop = sum(Total_Pop), 
               Current_Counts = sum(Current_Counts), Current_Pop = sum(Current_Pop)) %>% 
     mutate(CouncilArea = "GGC HSCPs", 
-           pc_change_Avg_5yr = 100*((Current_Counts/Current_Pop)- (Prev_Counts/Prev_Pop))/ (Prev_Counts/Prev_Pop)) %>% 
+           pc_change_Avg_5yr = ((Current_Counts/Current_Pop)- (Prev_Counts/Prev_Pop))/ (Prev_Counts/Prev_Pop)) %>% 
     select(CouncilArea, pc_change_Avg_5yr)
 }   
 
-get_all_5yr_rates <- function(tib=all_rates, CNeeds_string, CA_list, mon) {
-  get_all_5yr_stats(tib=all_rates, CNeeds_string, CA_list, mon) %>% 
-    bind_rows(., aggregate_5yr_ggc(tib=all_rates, CNeeds_string, CA_list, mon))
+get_all_5yr_rates <- function(tib=all_rates, CNeeds_string, CA_list, CA_no_Scotland, mon) {
+   get_all_5yr_stats(tib=all_rates, CNeeds_string, CA_list, mon) %>% 
+    bind_rows(., aggregate_5yr_ggc(tib=all_rates, CNeeds_string, CA_no_Scotland, mon))
   
 }
 
 get_summary_table <- function(mon, CNeeds_string, FYTD_flag) {
 get_pc_change_prev_time(tib_FY_CA, CNeeds_string, fydate, mon, FYTD_flag, pop_objfile = LA_pop_18plus) %>% 
   left_join(., get_rank(tib_FY_CA, CNeeds_string, fydate, mon, FYTD_flag), by = "CouncilArea") %>% 
-  left_join(., get_all_5yr_rates(all_rates, CNeeds_string, CA_list = CA_no_Scotland, mon), by = "CouncilArea") %>%
+  left_join(., get_all_5yr_rates(all_rates, CNeeds_string, CA_list = CA_of_interest, CA_no_Scotland, mon), by = "CouncilArea") %>%
   relocate(Rank, .after = "CouncilArea") 
 }
 # ---------------------------------------------------
