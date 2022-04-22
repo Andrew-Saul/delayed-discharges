@@ -766,8 +766,8 @@ create_fytd_dd_table <- function(tib, title_name){
     cols_label(Rate = md("Rate <br> (per 100,000)"),
                pc_change_prev = md("% Change on <br>previous <br>month")
     ) %>%
-    fmt_integer(columns = Rate) %>%
-    fmt_percent(columns = pc_change_prev) %>%
+    fmt_number(columns = Rate, decimals = 1) %>%
+    fmt_percent(columns = pc_change_prev, decimals = 1) %>%
     cols_width(
       Rank ~ px(50),
       Rate ~ px(120),
@@ -791,6 +791,7 @@ create_fytd_dd_table <- function(tib, title_name){
         cell_text(color = "white")
       )
     ) %>%
+    
     opt_align_table_header(align="left")
 }
 
@@ -802,8 +803,8 @@ create_month_dd_table <- function(tib, title_name){
                pc_change_prev = md("% Change on <br>previous <br>month"),
                pc_change_Avg_5yr = md("% Difference to 5-year average")
     ) %>%
-    fmt_integer(columns = Rate) %>%
-    fmt_percent(columns = c(pc_change_prev, pc_change_Avg_5yr)) %>%
+    fmt_number(columns = Rate, decimals = 1) %>%
+    fmt_percent(columns = c(pc_change_prev, pc_change_Avg_5yr), decimals = 1) %>%
     cols_width(
       Rank ~ px(50),
       Rate ~ px(120),
