@@ -304,13 +304,13 @@ create_month_dd_table(tib =mon_code9_rate_changes, title_name = "**{params$Repor
 ### Appendix 1 : HSCP Rankings for Financial Year to date `r fydate_text` (April 2021 to `r params$Report_month` `r params$Report_year`)
 
 ```{r}
-create_appendix1(fytd_code9_app)
+create_appendix1(tib=fytd_code9_app, title_name = "**HSCP Rankings for Financial Year to date {fydate_text} (April 2021 to {params$Report_month} {params$Report_year})**")
 
 ```
 
 ### Appendix 2: HSCP Rankings for `r params$Report_month` `r params$Report_year`
 ```{r}
-gt(mon_code9_app)
+create_appendix2(tib=mon_code9_app, title_name = "**Appendix 2: HSCP Rankings for {params$Report_month} {params$Report_year}**")
 ```
 
 
@@ -417,26 +417,11 @@ create_month_dd_table(tib =mon_standard_rate_changes, title_name = "**{params$Re
 ### Appendix 1 : HSCP Rankings for Financial Year to date `r fydate_text` (April 2021 to `r params$Report_month` `r params$Report_year`)
 
 ```{r}
-create_appendix1(fytd_standard_app)
+create_appendix1(tib=fytd_standard_app, title_name = "**HSCP Rankings for Financial Year to date {fydate_text} (April 2021 to {params$Report_month} {params$Report_year})**")
 
 ```
 
 ### Appendix 2: HSCP Rankings for `r params$Report_month` `r params$Report_year`
 ```{r}
-gt(mon_standard_app)
+create_appendix2(tib=mon_code9_app, title_name = "**Appendix 2: HSCP Rankings for {params$Report_month} {params$Report_year}**")
 ```
-
-```{r}
-temp_func <- function(df, ...){
-  arg_list <- list(...)
-  
-  
-  tmp_list <- list("a","b","c")
-  list_length <- length(tmp_list)
-  for (element in 1:list_length){
-   out <- paste("This is element", element)
-   print(out)
-  }
-}
-```
-

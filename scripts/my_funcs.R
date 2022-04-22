@@ -1,10 +1,10 @@
 # Libraries ---------------------------------------------------------------
-if(!require(librarian)){
-  install.packages("librarian")
-  library(librarian)
-}
-
-librarian::shelf(tidyverse, here, fs, readxl, janitor, glue, rlang)
+# if(!require(librarian)){
+#   install.packages("librarian")
+#   library(librarian)
+# }
+# 
+# librarian::shelf(tidyverse, here, fs, readxl, janitor, glue, rlang)
 
 
 # Scripts to acquire uptodate date from NRS --------------------------------------------------------
@@ -64,7 +64,8 @@ get_CA_bed_rates <- function(tib, CNeeds_string, fydate, mon, FYTD_flag=FALSE) {
       group_by(CouncilArea, FY, Months, GGCRegion) %>% 
       drop_na() %>% 
       summarise(Counts = sum(Counts), Pop = mean(Pop), .groups = "drop") %>% 
-      mutate(Rate = Counts/Pop *100000)
+      mutate(Rate = Counts/Pop *100000) %>%
+      ungroup() 
   } 
   else {
     tib <- tib %>% 
@@ -77,7 +78,8 @@ get_CA_bed_rates <- function(tib, CNeeds_string, fydate, mon, FYTD_flag=FALSE) {
      group_by(CouncilArea, FY, GGCRegion) %>% 
      # filter by mon value     
      summarise(Counts = sum(Counts), Pop = mean(Pop), .groups = "drop") %>% 
-     mutate(Rate = Counts/Pop *100000)
+     mutate(Rate = Counts/Pop *100000) %>%
+     ungroup() 
   }
 }
 
@@ -147,7 +149,8 @@ get_last_change <- function(tib, CNeeds_string, fydate, mon, FYTD_flag, pop_objf
             group_by(CouncilArea, FY, FY_begin) %>%
             # filter by mon value
             summarise(Prev_Counts = sum(Counts), Prev_Pop = mean(Pop), .groups = "drop") %>%
-            mutate(Prev_Rate = 100000 * Prev_Counts/Prev_Pop)
+            mutate(Prev_Rate = 100000 * Prev_Counts/Prev_Pop) %>%
+            ungroup() 
          }
 }
 
@@ -178,7 +181,8 @@ get_group_bed_rates <- function(..., ggc_flag = FALSE, scot_flag = FALSE){
     do.call(get_CA_bed_rates, arglist) %>% 
       group_by(GGCRegion) %>% 
       summarise(Counts = sum(Counts), Pop = sum(Pop)) %>%
-      mutate(Rate = Counts/Pop *100000) 
+      mutate(Rate = Counts/Pop *100000) %>% 
+      ungroup()
 
   } else get_CA_bed_rates(...)
 }
@@ -233,7 +237,7 @@ create_appendix <- function(tib=tib_FY_CA, CNeeds_string, fydate, mon, FYTD_flag
     filter(!CouncilArea %in% c("Scotland","Other")) %>%  
     left_join(., get_rank(tib, CNeeds_string, fydate, mon, FYTD_flag), by = "CouncilArea") %>% 
     arrange(Rank) %>% 
-    select(-c(FY))
+    select(-c(FY, GGCRegion))
 }
 get_rates <- function(tib, CA, fydate, pop_objfile){
   #get last 7yrs data (excluding 2021) in terms of rates
@@ -329,77 +333,6 @@ create_CArate_plot <- function(df, CNeeds_string, fydate, mon, FYTD_flag, g_rate
   p
 }
 
-create_fytd_dd_table <- function(tib, title_name){
-  tib %>%
-    gt(rowname_col = "CouncilArea") %>%
-      tab_header(title = md(glue(title_name))) %>%
-      cols_label(Rate = md("Rate <br> (per 100,000)"),
-                 pc_change_prev = md("% Change on <br>previous <br>month")
-                 ) %>%
-      fmt_integer(columns = Rate) %>%
-      fmt_percent(columns = pc_change_prev) %>%
-      cols_width(
-        Rank ~ px(50),
-        Rate ~ px(120),
-        pc_change_prev ~ px(120),
-        everything() ~ px(250)
-      ) %>%
-      tab_style(
-        locations = cells_body(
-          columns = everything(),
-          rows = "GGC HSCPs"
-        ),
-        style = cell_fill(color = "#9cc951")
-      ) %>%
-      tab_style(
-        locations = cells_body(
-          columns = everything(),
-          rows = "Scotland"
-        ),
-        style = list(
-          cell_fill(color = "#3f3685"),
-          cell_text(color = "white")
-        )
-      ) %>%
-      opt_align_table_header(align="left")
-}
-
-create_month_dd_table <- function(tib, title_name){
-  tib %>%
-    gt(rowname_col = "CouncilArea") %>%
-    tab_header(title = md(glue(title_name))) %>%
-    cols_label(Rate = md("Rate <br> (per 100,000)"),
-               pc_change_prev = md("% Change on <br>previous <br>month"),
-               pc_change_Avg_5yr = md("% Difference to 5-year average")
-              ) %>%
-    fmt_integer(columns = Rate) %>%
-    fmt_percent(columns = c(pc_change_prev, pc_change_Avg_5yr)) %>%
-    cols_width(
-      Rank ~ px(50),
-      Rate ~ px(120),
-      pc_change_prev ~ px(120),
-      pc_change_Avg_5yr ~ px(100),
-      everything() ~ px(250)
-    ) %>%
-    tab_style(
-      locations = cells_body(
-        columns = everything(),
-        rows = "GGC HSCPs"
-      ),
-      style = cell_fill(color = "#9cc951")
-    ) %>%
-    tab_style(
-      locations = cells_body(
-        columns = everything(),
-        rows = "Scotland"
-      ),
-      style = list(
-        cell_fill(color = "#3f3685"),
-        cell_text(color = "white")
-      )
-    ) %>%
-    opt_align_table_header(align="left")
-}
 
 get_scot_ggc_CA_rates <- function(tib, CNeeds_string, fydate, mon, FYTD_flag=FALSE) {
   ## create CAs plot automatically according to flags 
@@ -483,13 +416,17 @@ create_7yr_table <- function(tibble_name = all_rates, index=NULL, CNeeds_string,
     mutate(across(Apr:Mar, ~format(round(.x,1))))  
     
   #rename current_FY with slash
-  temp_df$Current_FY <- seperate_years_by_slash(temp_df$Current_FY)
+  Current_FY_label <- seperate_years_by_slash(temp_df$Current_FY)
     
   temp_df %>% 
+    select(-Current_FY) %>% 
     gt() %>% 
     tab_header(
-      title = glue("Number of Monthly Bed Days in 20{temp_df$Current_FY}")
-    )
+      title = glue("Number of Monthly Bed Days in 20{Current_FY_label}")
+    ) %>% 
+      cols_width(
+        everything() ~ px(70)
+      ) 
 
 }
 
@@ -573,7 +510,8 @@ get_FY_CA_data <- function(tib) {
     pivot_longer(cols = all_of(month_order), names_to = "Months", values_to = "Counts") %>% 
     mutate(Months = factor(Months, levels = c(month_order, ordered = TRUE))) %>% 
     group_by(CouncilArea, ComplexNeedsFlag, FY, FY_begin, Months) %>% 
-    summarise(Counts = sum(Counts), .groups = "drop") 
+    summarise(Counts = sum(Counts), .groups = "drop") %>% 
+    ungroup()
 }
 
 
@@ -616,14 +554,16 @@ get_avg_rate <- function(df, pop_objfile=LA_pop_18plus){
   df %>% 
     left_join(pop_objfile, by = c("CouncilArea", "FY_begin" = "year" )) %>% 
     group_by(Months) %>% 
-    summarise(Avg_rate = 100000*sum(Counts)/sum(Pop))
+    summarise(Avg_rate = 100000*sum(Counts)/sum(Pop)) %>% 
+    ungroup()
 }
 
 get_sum_counts_pop <- function(df, pop_objfile=LA_pop_18plus){
   df %>% 
     left_join(pop_objfile, by = c("CouncilArea", "FY_begin" = "year" )) %>% 
     group_by(Months) %>% 
-    summarise(Total_Counts = sum(Counts), Total_Pop = sum(Pop))
+    summarise(Total_Counts = sum(Counts), Total_Pop = sum(Pop)) %>% 
+    ungroup()
 }
 
 
@@ -760,13 +700,14 @@ get_written_summary_data <- function(tib) {
   list(count, regions)
 }
 
-create_appendix1 <- function(tib){
+create_appendix1 <- function(tib, title_name){
   tib %>%
-    select(-GGCRegion) %>% 
     gt(rowname_col = "CouncilArea") %>%
-    tab_header(title = md(glue("**HSCP Rankings for Financial Year to date {fydate_text} (April 2021 to {params$Report_month} {params$Report_year})**"))) %>% 
+    tab_stubhead(label = "HSCP") %>% 
+    tab_header(title = md(glue(title_name))) %>% 
     cols_label(Rate = md("Rate <br> (per 100,000)"),
-               Pop = md("Population")
+               Pop = md("Population (18+)"),
+               Counts = md("Number of <br> Bed Days")
     ) %>%
     fmt_integer(columns = c(Counts, Pop, Rank)) %>%
     fmt_number(columns = Rate, decimals = 1) %>%
@@ -775,7 +716,7 @@ create_appendix1 <- function(tib){
       Rate ~ px(120),
       Counts ~ px(100),
       Pop ~ px(120),
-      everything() ~ px(250)
+      everything() ~ px(190)
     ) %>% 
     tab_style(
       locations = cells_body(
@@ -783,5 +724,109 @@ create_appendix1 <- function(tib){
         rows = c(CA_no_Scotland)
       ),
       style = cell_fill(color = "#9cc951")
-    )
+    ) %>% 
+    tab_source_note(html('<pre><span style="background-color: #9CC951;">
+                         </span> = HSCP within the GGC Region</pre>'))
+}
+
+create_appendix2 <- function(tib, title_name){
+  tib %>%
+    select(-Months) %>% 
+    gt(rowname_col = "CouncilArea") %>%
+    tab_stubhead(label = md("HSCP")) %>% 
+    tab_header(title = md(glue(title_name))) %>% 
+    cols_label(Rate = md("Rate <br> (per 100,000)"),
+               Pop = md("Population (18+)"),
+               Counts = md("Number of <br> Bed Days")
+    ) %>%
+    fmt_integer(columns = c(Counts, Pop, Rank)) %>%
+    fmt_number(columns = Rate, decimals = 1) %>%
+    cols_width(
+      Rank ~ px(50),
+      Rate ~ px(120),
+      Counts ~ px(100),
+      Pop ~ px(120),
+      everything() ~ px(170)
+    ) %>% 
+    tab_style(
+      locations = cells_body(
+        columns = everything(),
+        rows = c(CA_no_Scotland)
+      ),
+      style = cell_fill(color = "#9cc951")
+    ) %>% 
+    tab_source_note(html('<pre><span style="background-color: #9CC951;">
+                         </span> = HSCP within the GGC Region</pre>'))
+}
+
+create_fytd_dd_table <- function(tib, title_name){
+  tib %>%
+    gt(rowname_col = "CouncilArea") %>%
+    tab_header(title = md(glue(title_name))) %>%
+    cols_label(Rate = md("Rate <br> (per 100,000)"),
+               pc_change_prev = md("% Change on <br>previous <br>month")
+    ) %>%
+    fmt_integer(columns = Rate) %>%
+    fmt_percent(columns = pc_change_prev) %>%
+    cols_width(
+      Rank ~ px(50),
+      Rate ~ px(120),
+      pc_change_prev ~ px(120),
+      everything() ~ px(250)
+    ) %>%
+    tab_style(
+      locations = cells_body(
+        columns = everything(),
+        rows = "GGC HSCPs"
+      ),
+      style = cell_fill(color = "#9cc951")
+    ) %>%
+    tab_style(
+      locations = cells_body(
+        columns = everything(),
+        rows = "Scotland"
+      ),
+      style = list(
+        cell_fill(color = "#3f3685"),
+        cell_text(color = "white")
+      )
+    ) %>%
+    opt_align_table_header(align="left")
+}
+
+create_month_dd_table <- function(tib, title_name){
+  tib %>%
+    gt(rowname_col = "CouncilArea") %>%
+    tab_header(title = md(glue(title_name))) %>%
+    cols_label(Rate = md("Rate <br> (per 100,000)"),
+               pc_change_prev = md("% Change on <br>previous <br>month"),
+               pc_change_Avg_5yr = md("% Difference to 5-year average")
+    ) %>%
+    fmt_integer(columns = Rate) %>%
+    fmt_percent(columns = c(pc_change_prev, pc_change_Avg_5yr)) %>%
+    cols_width(
+      Rank ~ px(50),
+      Rate ~ px(120),
+      pc_change_prev ~ px(120),
+      pc_change_Avg_5yr ~ px(100),
+      everything() ~ px(250)
+    ) %>%
+    tab_style(
+      locations = cells_body(
+        columns = everything(),
+        rows = "GGC HSCPs"
+      ),
+      style = cell_fill(color = "#9cc951")
+    ) %>%
+    tab_style(
+      locations = cells_body(
+        columns = everything(),
+        rows = "Scotland"
+      ),
+      style = list(
+        cell_fill(color = "#3f3685"),
+        cell_text(color = "white")
+      )
+    ) %>%
+    opt_align_table_header(align="left")
 }
