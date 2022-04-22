@@ -288,12 +288,12 @@ create_CArate_plot <- function(df, CNeeds_string, fydate, mon, FYTD_flag, g_rate
     filter(CouncilArea != "Other")
   
   if (is_true(FYTD_flag)){
-    mon_title <- c("Financial Year to Date")
-    FYear_title <- seperate_years_by_slash(fydate)
+    #sub_str aquires first two digits from FY xxxx value
+    mon_title <- glue("April 20{str_sub(fydate, 1, 2)} to {params$Report_month} {params$Report_year}")
   } else {# CORRECT THIS WHERE MONTHS DONT EXiST!!!!!!!!!
-    mon_value <- df %>% slice(1) %>% select(Months) %>% pull() %>% as.character()
-    mon_title <- c(glue("{mon_value} "))
-    FYear_title <- seperate_years_by_slash(fydate)
+    #mon_value <- df %>% slice(1) %>% select(Months) %>% pull() %>% as.character()
+    mon_title <- glue("{params$Report_month} {params$Report_year}")
+    #mon_title <- c(glue("{mon_value} "))
   }
   
   p <-   ggplot(df, aes(x=reorder(CouncilArea, Rate), y=Rate, fill = GGCRegion))+
@@ -304,8 +304,8 @@ create_CArate_plot <- function(df, CNeeds_string, fydate, mon, FYTD_flag, g_rate
     geom_hline(yintercept=s_rate[[1]], color = "#3f3685")+
     geom_hline(yintercept=g_rate[[1]], color = "#83bb26")+
     coord_flip()+
-    labs(title = str_wrap(glue("{mon_title} ({FYear_title}) – {CNeeds_string} Delays : Rate per 100,000 Population")),
-         y = str_wrap("Bed Days Rate (Per 100,000 Population)"),
+    labs(title = str_wrap(glue("Delayed Discharge Bed Days Rate by HSCP - {CNeeds_string} Delays ({mon_title})"), width = 60),
+         y = str_wrap("Bed days rate (per 100,000 population)"),
          x= "")+
     #guides(linetype = guide_legend(order = 2), fill = guide_legend(order = 1), color = guide_legend(order = 1))+
     theme_set(theme_minimal(base_size = 12, base_family = "Open Sans"))+
@@ -383,8 +383,10 @@ create_7yr_plot <- function(tibble_name = all_rates, index=NULL, CNeeds_string=N
     
     scale_color_manual(name = "", labels = c("Prev 5yr Avg", glue("FY = {FY_label}")), values = c("blue", "magenta"), breaks = c("5yr Avg Value", "current"))+
     
-    labs(title = str_wrap(glue("{CA_of_interest} : Monthly Bed Days Rate (per 100,000) with Previous 5-Year Average Comparison (2015/16-2019/20) - {CNeeds_string} ")),
-         y = str_wrap("Delayed Discharge Bed Days Rate (per 100,000 population)", width = 30),
+    labs(title = str_wrap(glue("{CA_of_interest} :Delayed Discharge Monthly Bed Days Rate with 
+                               Previous 5-year Average (20{min_max_5yr_avg()[[1]]} to 20{min_max_5yr_avg()[[2]]}) - {CNeeds_string} Dealys 
+                               ({params$Report_month} {params$Report_year}) ")),
+         y = str_wrap("Bed days rate (per 100,000 population)", width = 30),
          x= "")+
     #guides(linetype = guide_legend(order = 2), fill = guide_legend(order = 1), color = guide_legend(order = 1))+
     theme_set(theme_minimal(base_size = 12, base_family = "Open Sans"))+
@@ -685,6 +687,26 @@ get_pc_change_prev_time(tib_FY_CA, CNeeds_string, fydate, mon, FYTD_flag, pop_ob
   left_join(., get_all_5yr_rates(all_rates, CNeeds_string, CA_list = CA_of_interest, CA_no_Scotland, mon), by = "CouncilArea") %>%
   relocate(Rank, .after = "CouncilArea") 
 }
+
+# --------------------------------------------------------------------
+# determine range of FYs utilised in "prev 5 yr avg" - Example of East Dunbartonshire used
+min_max_5yr_avg <- function() {
+  
+  range_5yr_avg <- get_historic_counts(tib = tib_FY_CA, fydate, CA = "East Dunbartonshire" ) %>%
+    select(FY) %>% 
+    unique() %>% 
+    pull()
+  
+  min_FY <- min(range_5yr_avg) %>% 
+    seperate_years_by_slash()
+  
+  max_FY <- max(range_5yr_avg) %>% 
+    seperate_years_by_slash()
+  
+  list(min_FY, max_FY)
+  
+}
+
 # ---------------------------------------------------
 get_written_summary_data <- function(tib) {
   ggc_higher_scot_rates <- tib[[3]]%>% 

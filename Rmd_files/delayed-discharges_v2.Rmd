@@ -1,5 +1,6 @@
 ---
 title: "Delayed Discharge Bed Days"
+subtitle: "`r params$Report_month` `r params$Report_year`"
 output: html_document
 params:
   Report_month: "February"
@@ -112,6 +113,7 @@ tib_FY_CA<- get_FY_CA_data(raw_tib) %>%
 
 ```
 
+
 ```{r historicalrates}
 
 #list of all Councils containing tibbles for min,max, avg current values
@@ -208,7 +210,7 @@ fytd_standard_app <- create_appendix(tib =tib_FY_CA, CNeeds_string = "Standard",
 mon_standard_app <- create_appendix(tib =tib_FY_CA, CNeeds_string = "Standard", fydate=fydate, mon = params$Report_month, FYTD_flag = FALSE)
 ```
 
-## Code 9 Results {.tabset}
+## Code 9 Delays {.tabset}
 
 ### `r params$Report_month`
 
@@ -281,9 +283,10 @@ list_t[[7]]
   
 ```
 
-### Summary Statistics – Delayed Discharge Bed Days (Code 9 Delays)
+### Summary Statistics 
 
-#### Financial Year to Date
+#### Table 1 
+
 A total of  `r get_written_summary_data(scot_ggc_code9_fytd)[[1]]` of 6 NHSGGC HSCPs have rates above the Scotland average. <br /> 
 `r if (get_written_summary_data(scot_ggc_code9_fytd)[[1]]>0) {paste("They are",paste0( get_written_summary_data(scot_ggc_code9_fytd)[[2]], collapse = ", "))}`.
 
@@ -293,7 +296,10 @@ create_fytd_dd_table(tib =fytd_code9_rate_changes, title_name = "**FYTD – Dela
 
 ```
 
-#### Current Month
+***
+
+#### Table 2
+
 A total of  `r get_written_summary_data(scot_ggc_code9_mon)[[1]]` of 6 NHSGGC HSCPs have rates above the Scotland average. <br /> 
 `r if (get_written_summary_data(scot_ggc_code9_mon)[[1]]>0) {paste("They are",paste0( get_written_summary_data(scot_ggc_code9_mon)[[2]], collapse = ", "))}`.
 
@@ -301,7 +307,7 @@ A total of  `r get_written_summary_data(scot_ggc_code9_mon)[[1]]` of 6 NHSGGC HS
 create_month_dd_table(tib =mon_code9_rate_changes, title_name = "**{params$Report_month} {params$Report_year}– Delayed Discharge Bed Days (Code 9 Delays)**")
 ```
 
-### Appendix 1 : HSCP Rankings for Financial Year to date `r fydate_text` (April 2021 to `r params$Report_month` `r params$Report_year`)
+### Appendix 1 : HSCP Rankings for Financial Year to date 20`r fydate_text` 
 
 ```{r}
 create_appendix1(tib=fytd_code9_app, title_name = "**HSCP Rankings for Financial Year to date {fydate_text} (April 2021 to {params$Report_month} {params$Report_year})**")
@@ -314,7 +320,7 @@ create_appendix2(tib=mon_code9_app, title_name = "**Appendix 2: HSCP Rankings fo
 ```
 
 
-## Standard Results {.tabset}
+## Standard Delays {.tabset}
 
 ```{r}
 for (count in seq_along(CA_of_interest)){ 
@@ -395,9 +401,10 @@ list_t[[7]]
   
 ```
 
-### Summary Statistics – Delayed Discharge Bed Days (Standard Delays)
+### Summary Statistics
 
-#### Financial Year to Date
+#### Table 3
+
 A total of  `r get_written_summary_data(scot_ggc_standard_fytd)[[1]]` of 6 NHSGGC HSCPs have rates above the Scotland average. <br /> 
 `r if (get_written_summary_data(scot_ggc_standard_fytd)[[1]]>0) {paste("They are",paste0( get_written_summary_data(scot_ggc_standard_fytd)[[2]], collapse = ", "))}`.
 
@@ -406,14 +413,18 @@ A total of  `r get_written_summary_data(scot_ggc_standard_fytd)[[1]]` of 6 NHSGG
 create_fytd_dd_table(tib =fytd_standard_rate_changes, title_name = "**FYTD – Delayed Discharge Bed Days (Standard Delays)**")
 ```
 
-#### Current Month
+***
+
+#### Table 4
+
 A total of  `r get_written_summary_data(scot_ggc_standard_mon)[[1]]` of 6 NHSGGC HSCPs have rates above the Scotland average. <br /> `r if (get_written_summary_data(scot_ggc_standard_mon)[[1]]>0) {paste("They are",paste0( get_written_summary_data(scot_ggc_standard_mon)[[2]], collapse = ", "))}`.
+
 ```{r}
 create_month_dd_table(tib =mon_standard_rate_changes, title_name = "**{params$Report_month} {params$Report_year}– Delayed Discharge Bed Days (Standard Delays)**")
 
 ```
 
-### Appendix 1 : HSCP Rankings for Financial Year to date `r fydate_text` (April 2021 to `r params$Report_month` `r params$Report_year`)
+### Appendix 1 : HSCP Rankings for Financial Year to date 20`r fydate_text` 
 
 ```{r}
 create_appendix1(tib=fytd_standard_app, title_name = "**HSCP Rankings for Financial Year to date {fydate_text} (April 2021 to {params$Report_month} {params$Report_year})**")
