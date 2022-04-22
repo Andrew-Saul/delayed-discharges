@@ -404,7 +404,6 @@ A total of  `r get_written_summary_data(scot_ggc_standard_fytd)[[1]]` of 6 NHSGG
 
 ```{r}
 create_fytd_dd_table(tib =fytd_standard_rate_changes, title_name = "**FYTD – Delayed Discharge Bed Days (Standard Delays)**")
-
 ```
 
 #### Current Month
