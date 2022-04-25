@@ -384,7 +384,7 @@ create_7yr_plot <- function(tibble_name = all_rates, index=NULL, CNeeds_string=N
     scale_color_manual(name = "", labels = c("Prev 5yr Avg", glue("FY = {FY_label}")), values = c("blue", "magenta"), breaks = c("5yr Avg Value", "current"))+
     
     labs(title = str_wrap(glue("{CA_of_interest} :Delayed Discharge Monthly Bed Days Rate with 
-                               Previous 5-year Average (20{min_max_5yr_avg()[[1]]} to 20{min_max_5yr_avg()[[2]]}) - {CNeeds_string} Dealys 
+                               Previous 5-year Average (20{min_max_5yr_avg()[[1]]} to 20{min_max_5yr_avg()[[2]]}) - {CNeeds_string} Delays 
                                ({params$Report_month} {params$Report_year}) ")),
          y = str_wrap("Bed days rate (per 100,000 population)", width = 30),
          x= "")+
@@ -415,7 +415,7 @@ create_7yr_table <- function(tibble_name = all_rates, index=NULL, CNeeds_string,
   temp_df <- fun_df %>% 
     select(Month_labels, Current_FY, Current_Counts) %>% 
     pivot_wider(names_from = "Month_labels", values_from = "Current_Counts") %>% 
-    mutate(across(Apr:Mar, ~format(round(.x,1))))  
+    mutate(across(Apr:Mar, ~(scales::label_comma(accuracy = 1)(.x))))  
     
   #rename current_FY with slash
   Current_FY_label <- seperate_years_by_slash(temp_df$Current_FY)

@@ -1,5 +1,5 @@
 ---
-title: "Delayed Discharge Bed Days"
+title: "NHSGGC Delayed Discharge Bed Days Monthly Performance Report"
 subtitle: "`r params$Report_month` `r params$Report_year`"
 output: html_document
 params:
