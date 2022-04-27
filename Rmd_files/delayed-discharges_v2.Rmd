@@ -9,7 +9,7 @@ editor_options:
   chunk_output_type: console
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include=FALSE, message=FALSE, warning=FALSE}
 knitr::opts_chunk$set(echo = FALSE, fig.width = 10, fig.height = 6)
 ```
 
@@ -20,7 +20,7 @@ if(!require(librarian)){
 }
 
 librarian::shelf(tidyverse, here, fs, rvest ,xml2, openxlsx, lubridate, readxl, janitor, glue, plotly, ggtext, kableExtra, gt, rlang)
-source(here::here("scripts", "my_funcs.R"))
+source(here::here("scripts", "my_funcs_plotly.R"))
 source(here::here("scripts", "populations.R"))
 ```
 **NOTES**
@@ -229,7 +229,7 @@ create_CArate_plot(scot_ggc_code9_fytd[[3]], CNeeds_string = "Code 9", fydate = 
 
 ### `r CA_of_interest[1]`
 
-```{r}
+```{r message=FALSE}
 list_p[[1]]
 list_t[[1]]
   
@@ -237,7 +237,7 @@ list_t[[1]]
 
 ### `r CA_of_interest[2]`
 
-```{r}
+```{r message=FALSE}
 list_p[[2]]
 list_t[[2]]
   
@@ -245,7 +245,7 @@ list_t[[2]]
 
 ### `r CA_of_interest[3]`
 
-```{r}
+```{r message=FALSE}
 list_p[[3]]
 list_t[[3]]
   
@@ -253,7 +253,7 @@ list_t[[3]]
 
 ### `r CA_of_interest[4]`
 
-```{r}
+```{r message=FALSE}
 list_p[[4]]
 list_t[[4]]
   
@@ -261,7 +261,7 @@ list_t[[4]]
 
 ### `r CA_of_interest[5]`
 
-```{r}
+```{r message=FALSE}
 list_p[[5]]
 list_t[[5]]
   
@@ -269,7 +269,7 @@ list_t[[5]]
 
 ### `r CA_of_interest[6]`
 
-```{r}
+```{r message=FALSE}
 list_p[[6]]
 list_t[[6]]
   
@@ -277,7 +277,7 @@ list_t[[6]]
 
 ### `r CA_of_interest[7]`
 
-```{r}
+```{r message=FALSE}
 list_p[[7]]
 list_t[[7]]
   
@@ -347,7 +347,7 @@ create_CArate_plot(scot_ggc_standard_fytd[[3]], CNeeds_string = "Standard", fyda
 
 ### `r CA_of_interest[1]`
 
-```{r}
+```{r message=FALSE}
 list_p[[1]]
 list_t[[1]]
   
@@ -355,7 +355,7 @@ list_t[[1]]
 
 ### `r CA_of_interest[2]`
 
-```{r}
+```{r message=FALSE}
 list_p[[2]]
 list_t[[2]]
   
@@ -363,7 +363,7 @@ list_t[[2]]
 
 ### `r CA_of_interest[3]`
 
-```{r}
+```{r message=FALSE}
 list_p[[3]]
 list_t[[3]]
   
@@ -371,7 +371,7 @@ list_t[[3]]
 
 ### `r CA_of_interest[4]`
 
-```{r}
+```{r message=FALSE}
 list_p[[4]]
 list_t[[4]]
   
@@ -379,7 +379,7 @@ list_t[[4]]
 
 ### `r CA_of_interest[5]`
 
-```{r}
+```{rmessage=FALSE}
 list_p[[5]]
 list_t[[5]]
   
@@ -387,7 +387,7 @@ list_t[[5]]
 
 ### `r CA_of_interest[6]`
 
-```{r}
+```{r message=FALSE}
 list_p[[6]]
 list_t[[6]]
   
@@ -395,7 +395,7 @@ list_t[[6]]
 
 ### `r CA_of_interest[7]`
 
-```{r}
+```{r message=FALSE}
 list_p[[7]]
 list_t[[7]]
   
