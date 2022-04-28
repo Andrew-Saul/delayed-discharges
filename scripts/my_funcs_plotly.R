@@ -384,7 +384,7 @@ create_7yr_plot <- function(tibble_name = all_rates, index=NULL, CNeeds_string=N
             hovertemplate = paste( "Rate: %{y:.1f}<br>Month: %{x} </br>")) %>% # dash options include 'dash', 'dot', and 'dashdot') %>%
 
     add_ribbons(ymin = ~Min_rate, ymax=~Max_rate,
-                mode="lines+markers",
+              #  mode="lines+markers",
                 line = list(color = "lightgrey"),
                 marker = list(color = "lightgrey"),
                 fillcolor = "rgba(7, 164, 181, 0.2)",
@@ -399,7 +399,8 @@ create_7yr_plot <- function(tibble_name = all_rates, index=NULL, CNeeds_string=N
                                 Previous 5-year Average (20{min_max_5yr_avg()[[1]]} to 20{min_max_5yr_avg()[[2]]}) - {CNeeds_string} Delays 
                                 ({params$Report_month} {params$Report_year}) "))),
             xaxis = list(title = ""),
-            yaxis = list(title = "Bed days rate (per 100,000 population)"))
+            yaxis = list(title = "Bed days rate (per 100,000 population)"),
+            legend = list(x = 1, y = 0.9)) 
     
     
     
