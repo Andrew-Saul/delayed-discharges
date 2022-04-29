@@ -375,34 +375,63 @@ create_7yr_plot <- function(tibble_name = all_rates, index=NULL, CNeeds_string=N
     seperate_years_by_slash()
   
 # Plotly plot
+    #sets margin values in mrg variable
+  mrg <- list(l = 50, r = 50,
+              b = 100, t = 100,
+              pad = 20)
+  
     plot_ly(fun_df, x= ~Month_labels) %>% 
-    add_trace(y= ~Avg_rate, name = "Prev 5yr Avg",
-            type = "scatter",
-            mode="lines+markers",
-            line = list(color = "blue",  dash='dash'),
-            marker = list(color = "blue"),
-            hovertemplate = paste( "Rate: %{y:.1f}<br>Month: %{x} </br>")) %>% # dash options include 'dash', 'dot', and 'dashdot') %>%
+      
+      add_lines( y=~Current_rate, 
+                 name = glue("FY 20{FY_label}"),
+                 type="scatter", 
+                 mode="lines+markers",
+                 line = list(color = c('magenta')), 
+                 marker=list(color = 'magenta'),
+                 hovertemplate = paste( "Rate: %{y:.1f}<br>Month: %{x} </br>")) %>%
+      
+      add_lines(y= ~Avg_rate, 
+                name = "Prev 5yr Avg",
+                type = "scatter",
+                mode="lines+markers",
+                line = list(color = "blue",  dash='dash'),
+                marker = list(color = "blue"),
+                hovertemplate = paste( "Rate: %{y:.1f}<br>Month: %{x} </br>")) %>% # dash options include 'dash', 'dot', and 'dashdot') %>%
 
-    add_ribbons(ymin = ~Min_rate, ymax=~Max_rate,
-              #  mode="lines+markers",
-                line = list(color = "lightgrey"),
-                marker = list(color = "lightgrey"),
-                fillcolor = "rgba(7, 164, 181, 0.2)",
-                name = "Max/Min limits prev 5 years",
-                hovertemplate = paste( "Rate: %{y:.1f}<br>Month: %{x} </br>")) %>%
+      add_lines(y = ~Min_rate, 
+                type = "scatter",
+                mode="lines+markers",
+                line = list(color = "#6e7073"),
+                marker = list(color = "#6e7073"),
+                name = "Minimum rate in prev 5 yrs",
+                hovertemplate = paste( "Rate: %{y:.1f}<br>Month: %{x} </br>")) %>% 
+      
+      add_lines(y = ~Max_rate, 
+                type = "scatter",
+                mode="lines+markers",
+                line = list(color = "#6e7073"),
+                marker = list(color = "#6e7073"),
+                name = "Maximum rate in prev 5 yrs",
+                hovertemplate = paste( "Rate: %{y:.1f}<br>Month: %{x} </br>")) %>% 
+      
+      add_ribbons(ymin = ~Min_rate, ymax=~Max_rate,
+                  mode="line",
+                  line = list(color = "#6e7073"),
+                  fillcolor = "rgba(7, 164, 181, 0.2)",
+                  name = "Range prev 5 years",
+                  hoverinfo = "none") %>% #hovertemplate included separately below
 
-    add_trace( y=~Current_rate, name = glue("FY 20{FY_label}"),  type="scatter", mode="lines+markers",
-               line = list(color = c('magenta')), marker=list(color = 'magenta'),
-               hovertemplate = paste( "Rate: %{y:.1f}<br>Month: %{x} </br>")) %>%
-
-     layout(title = list(text = str_wrap(glue("{CA_of_interest} :Delayed Discharge Monthly Bed Days Rate with 
+     layout(title = list(text = paste(str_wrap(glue("{CA_of_interest[[1]]} :Delayed Discharge Monthly Bed Days Rate with 
                                 Previous 5-year Average (20{min_max_5yr_avg()[[1]]} to 20{min_max_5yr_avg()[[2]]}) - {CNeeds_string} Delays 
-                                ({params$Report_month} {params$Report_year}) "))),
+                                ({params$Report_month} {params$Report_year}) "), width = 70), collapse = "\n"), x=0.05, pad = list(b=120)),
             xaxis = list(title = ""),
             yaxis = list(title = "Bed days rate (per 100,000 population)"),
-            legend = list(x = 1, y = 0.9)) 
+            legend = list(x = 1, y = 0.9)
+            ) 
     
-    
+    # title = list(text = str_wrap(glue("{CA_of_interest} :Delayed Discharge Monthly Bed Days Rate with 
+    #                             Previous 5-year Average (20{min_max_5yr_avg()[[1]]} to 20{min_max_5yr_avg()[[2]]}) - {CNeeds_string} Delays 
+    #                             ({params$Report_month} {params$Report_year}) "))),
     
     
   # static_p <- 
