@@ -428,7 +428,7 @@ create_7yr_plot <- function(tibble_name = all_rates, index=NULL, CNeeds_string=N
             yaxis = list(title = "Bed days rate (per 100,000 population)"),
             legend = list(x = 1, y = 0.9)
             ) 
-    
+  #  
     # title = list(text = str_wrap(glue("{CA_of_interest} :Delayed Discharge Monthly Bed Days Rate with 
     #                             Previous 5-year Average (20{min_max_5yr_avg()[[1]]} to 20{min_max_5yr_avg()[[2]]}) - {CNeeds_string} Delays 
     #                             ({params$Report_month} {params$Report_year}) "))),
