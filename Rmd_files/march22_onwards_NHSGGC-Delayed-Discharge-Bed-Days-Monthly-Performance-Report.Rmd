@@ -9,6 +9,7 @@ editor_options:
   chunk_output_type: console
 ---
 
+Note they way the number of GGCs above scotland level were calculated in Tables 1,2,3,4
 ```{r setup, include=FALSE, message=FALSE, warning=FALSE}
 knitr::opts_chunk$set(echo = FALSE, fig.width = 10, fig.height = 6)
 ```
@@ -55,6 +56,7 @@ fydate_text <- seperate_years_by_slash(fydate)
 # council areas of interest
 CA_of_interest <- c("Scotland", "East Dunbartonshire", "East Renfrewshire", "Glasgow City", "Inverclyde", "Renfrewshire", "West Dunbartonshire") #%>% 
  # set_names(.)
+CA_of_interest_named_vec <- CA_of_interest %>% set_names()
 
 CA_no_Scotland <- c("East Dunbartonshire", "East Renfrewshire", "Glasgow City", "Inverclyde", "Renfrewshire", "West Dunbartonshire") #%>% 
  # set_names(.)
@@ -139,7 +141,7 @@ plot_table_func_list <- c("create_7yr_plot", "create_7yr_table")
 
 
 for (count in seq_along(CA_of_interest)){ 
-  arglist_i <- list(all_rates, index=count, CNeeds_string=CNeeds_list[[1]], CA_of_interest = CA_of_interest[count])
+  arglist_i <- list(all_rates, index=count, CNeeds_string=CNeeds_list[[1]], CA_of_interest = CA_of_interest_named_vec[count])
 
 list_p[[count]] <- do.call(plot_table_func_list[1], arglist_i)
 list_t[[count]] <- do.call(plot_table_func_list[2], arglist_i)
