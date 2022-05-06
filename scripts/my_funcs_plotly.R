@@ -9,8 +9,8 @@
 
 # Scripts to acquire uptodate date from NRS --------------------------------------------------------
 
-scraplinks <- function(text_string = "beddays", Report_month, Report_year){
-  NRS_url  <- glue("https://publichealthscotland.scot/publications/delayed-discharges-in-nhsscotland-monthly/delayed-discharges-in-nhsscotland-monthly-figures-for-{Report_month}-{Report_year}/#section-3")
+scraplinks <- function(text_string = "beddays", month = params$Report_month, year = params$Report_year){
+  NRS_url  <- glue("https://publichealthscotland.scot/publications/delayed-discharges-in-nhsscotland-monthly/delayed-discharges-in-nhsscotland-monthly-figures-for-{month}-{year}/#section-3")
   #text_string <- "beddays"
   # Create an html document from the url
   webpage <- xml2::read_html(NRS_url)
@@ -52,7 +52,7 @@ get_CA_bed_rates <- function(tib, CNeeds_string, fydate, mon, FYTD_flag=FALSE) {
   # enter tibble, and element of ComplexNeedsFlag
   tib <- tib %>% 
     filter(ComplexNeedsFlag == CNeeds_string) %>% 
-    filter(FY %in% fydate)
+    filter(FY %in% fydate) 
     # %>% 
   #filter(CouncilArea != "Other") 
   
@@ -154,29 +154,19 @@ get_last_change <- function(tib, CNeeds_string, fydate, mon, FYTD_flag, pop_objf
          }
 }
 
-get_group_bed_rates <- function(..., ggc_flag = FALSE, scot_flag = FALSE){
+get_group_bed_rates <- function(tib, CNeeds_string, fydate, mon, FYTD_flag, ggc_flag = FALSE, scot_flag = FALSE){
   ## Get bedrates independent of scot, ggc or no flags 
   
   if (scot_flag == TRUE) {
-    get_CA_bed_rates(...) %>%
+    get_CA_bed_rates(tib, CNeeds_string, fydate, mon, FYTD_flag) %>% 
       filter(CouncilArea == "Scotland")
     
   } else if (ggc_flag == TRUE){
     
-    arglist <- list(...)
+    arglist <- list(tib, CNeeds_string, fydate, mon, FYTD_flag)
     
     arglist[[1]] <- arglist[[1]] %>%
       filter(GGCRegion == TRUE)
-    
-    #default value of mon = NULL for CA_bed_rate function, in case looking at upto FY rates
-    # if(length(arglist) == 4){
-    #   mon=arglist[[4]]
-    # } else if (length(arglist) == 3) {
-    #   mon=NULL
-    # } else {
-    #   #message("arglist in function get_group_bed_rates = ", length(arglist))
-    # }
-    
     
     do.call(get_CA_bed_rates, arglist) %>% 
       group_by(GGCRegion) %>% 
@@ -184,7 +174,7 @@ get_group_bed_rates <- function(..., ggc_flag = FALSE, scot_flag = FALSE){
       mutate(Rate = Counts/Pop *100000) %>% 
       ungroup()
 
-  } else get_CA_bed_rates(...)
+  } else get_CA_bed_rates(tib, CNeeds_string, fydate, mon, FYTD_flag)
 }
 
 get_prev_7yr_rates <- function(df, CNeeds_list, CA_of_interest, fydate, pop_objfile=LA_pop_18plus){
@@ -366,8 +356,8 @@ create_7yr_plot <- function(tibble_name = all_rates, index=NULL, CNeeds_string=N
   
   fun_df <- tibble_name[[CNeeds_string]][[index]]
   
-  fun_df <- fun_df %>% 
-    ungroup()
+  # fun_df <- fun_df %>% 
+  #   ungroup()
   FY_label <- fun_df %>% 
     select(Current_FY) %>% 
     distinct() %>% 
@@ -555,6 +545,27 @@ create_FY_authority <- function(xl_file, sheet_name) {
 tempdf
 }
 
+#function for data in March 2022 only
+create_mod_FY_authority <- function(xl_file, sheet_name) {
+  ## Creates tibble for each sheet 
+  # creates tibble for each sheet name, removes Qtr fields ,
+  # adds Finanical Year field, creates type of authority field (LA or HB)
+  # renames LA/health board fields and filters "All" for AgeGroup
+  df<- read_excel(xl_file, sheet_name) %>% 
+    select(-c(starts_with("Q"), 1)) %>% #removes quarter year fields
+    rename(FYToDate = starts_with("FY_")) %>% 
+    drop_na(AgeGroup) %>% #discard these empty rows (if AgeGroup empty then entire row empty)
+    mutate(FY = as.integer(FY)) %>% #create FY field with integer value FY_var eg 1718
+    rename(CouncilArea = LA) %>%  # rename 1st column "CouncilArea"
+    convert_FY_to_calender() %>% 
+    filter(AgeGroup == "All") 
+  # if Health Board, only keeps Scotland element 
+  if(str_detect(sheet_name, "HBD")){
+    df <-  df %>% 
+      filter(CouncilArea == "Scotland")
+  } # end if
+  df
+}
 
 add_GGC_field <- function(df){
   # adds GGC_HSCP flag to tibble 
@@ -770,10 +781,12 @@ min_max_5yr_avg <- function() {
 }
 
 # ---------------------------------------------------
-get_written_summary_data <- function(tib) {
-  ggc_higher_scot_rates <- tib[[3]]%>% 
-    filter(GGCRegion == TRUE) %>% 
-    filter(Rate > tib[[1]])
+# tib is from ***_***_rate_changes obj, and scot_level from scot_ggc_***_mon[[1]]
+get_written_summary_data <- function(tib, scot_level) {
+  # remove c("GGC HSCPs", "Scotland") entries from table, then keep rows above Scotland rate
+  ggc_higher_scot_rates <- tib %>% 
+    filter(!CouncilArea %in% c("GGC HSCPs", "Scotland")) %>% 
+    filter(Rate > scot_level)
   
   count = nrow(ggc_higher_scot_rates)
   
@@ -783,6 +796,20 @@ get_written_summary_data <- function(tib) {
   
   list(count, regions)
 }
+
+# get_written_summary_data <- function(tib, scot_level) {
+#   ggc_higher_scot_rates <- tib %>% 
+#     filter(GGCRegion == TRUE) %>% 
+#     filter(Rate > tib[[1]])
+#   
+#   count = nrow(ggc_higher_scot_rates)
+#   
+#   regions <- ggc_higher_scot_rates %>% 
+#     select(CouncilArea) %>% 
+#     pull()
+#   
+#   list(count, regions)
+# }
 
 create_appendix1 <- function(tib, title_name){
   tib %>%
