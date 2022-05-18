@@ -58,14 +58,14 @@ does not apply to Code 9 delays.
 # fydate_text <- seperate_years_by_slash(fydate)
 
 # council areas of interest
-# CA_of_interest <- c("Scotland", "East Dunbartonshire", "East Renfrewshire", "Glasgow City", "Inverclyde", "Renfrewshire", "West Dunbartonshire") 
+ CA_of_interest <- c("Scotland", "East Dunbartonshire", "East Renfrewshire", "Glasgow City", "Inverclyde", "Renfrewshire", "West Dunbartonshire") %>% set_names()
 
-CA_of_interest <- "Renfrewshire"
+#CA_of_interest <- c("Renfrewshire", "Glasgow City")
 
 CA_of_interest_named_vec <- CA_of_interest %>% set_names()
 # ---------------------------------------------------------------------------------------
-CA_no_Scotland <- c("East Dunbartonshire", "East Renfrewshire", "Glasgow City", "Inverclyde", "Renfrewshire", "West Dunbartonshire") #%>% 
- # set_names(.)
+CA_no_Scotland <- c("East Dunbartonshire", "East Renfrewshire", "Glasgow City", "Inverclyde", "Renfrewshire", "West Dunbartonshire") %>% 
+  set_names(.)
 # ---------------------------------------------------------------------------------------
 delay_reasons_list <- c("All code 9 delay reasons", "All standard") #%>%
  # set_names(.)
@@ -121,28 +121,38 @@ if(count(df_main %>% filter(is.na(obd)))>0){
   
 } 
 
+# calender_months <- c("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
+# 
+# #selects numeric value of month as per calender_months
+#   month_int <- 
+#     match(params$Report_month, calender_months) 
 ```
 
 
 ```{r historicalrates}
 
-# <recent_7yr_rates> function: 
+# <rates_permonth> function: 
 # 1st list: tibble of last 7yr rates
 # 2nd list: FYear column for prev 5yr data (excluding current year) - for plot and table functions
 #           auto calculates min and max financial years for prev 5 years of data
 #     
 # 3rd list : FYear of all data.  Calcs current year, for use as row heading in table function
 
-recent_7yr_rates <- get_prev_7yr_rates(df_main, delay_reasons_list, CA_of_interest) 
+rates_permonth <- get_rates_years_of_interest(df_main, delay_reasons_list, CA_of_interest)
+
+
+
+
+
 #create empty list to accept plots and tables
 list_p <- vector(mode = "list", length = length(CA_of_interest))
 list_t <- vector(mode = "list", length = length(CA_of_interest))
 
-plot_table_func_list <- c("create_7yr_plot", "create_current_FY_tables")
+plot_table_func_list <- c("create_regional_plot", "create_current_FY_tables")
 
 
 for (count in seq_along(CA_of_interest)){ 
-  arglist_i <- list(recent_7yr_rates, index=count, delay_reason=delay_reasons_list[[2]], CA_of_interest = CA_of_interest_named_vec[count])
+  arglist_i <- list(rates_permonth, index=count, delay_reason=delay_reasons_list[[2]], CA_of_interest = CA_of_interest_named_vec[count])
 
 list_p[[count]] <- do.call(plot_table_func_list[1], arglist_i)
 list_t[[count]] <- do.call(plot_table_func_list[2], arglist_i)

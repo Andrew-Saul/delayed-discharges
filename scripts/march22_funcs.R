@@ -90,23 +90,80 @@ create_main_tibble <- function(obj1, obj2) {
   
 
 }
-# get historical and current discharge rates for GGC Council Areas and Scotland -----
-# the dataset is split into two lists according to "code9" or "All standard" value of 
-# delay reasons
-get_prev_7yr_rates <- function(df, delay_reason, CA_of_interest, pop_objfile=LA_pop_18plus){
 
-  df_split <- df %>%
-    filter(geog %in% CA_of_interest) %>% 
-    filter(delay_reasons %in% delay_reason) %>%
-    split(.$delay_reasons) 
+#  historic HSCP data acquistion  ------------------
+
+get_historic_counts <- function(tib, CA) {
+  ## Excluding current FY 
   
-  # for each (2) delay_reason tibble, the historic and current rates for each
-  # Council Area are calculated.  
-  map(df_split, function(x) 
-    map(CA_of_interest, function(y) get_rates(tib = x, CA= y, pop_objfile))%>% 
-          set_names(CA_of_interest_named_vec)
-  ) 
-} 
+  ## this function first creates a vector of unique, ordered fin_years
+  ## the value of the level for the most recent and earliest inputted fin_yrs is obtained
+  ## The orginal tibble is filtered by fin_yr levels between and including
+  ## these two extremes.  The year "2020/21" is also excluded.
+  ## Finally the tibble is filtered by geog HSCP
+  
+  fin_yr_vec <- 
+    tib %>% 
+    select(fin_yr) %>% 
+    distinct() %>% 
+    pull()
+  
+  most_recent_int <- fin_yr_vec[fin_yr_vec == params$most_recent_historical_fy] %>% as.integer()
+  earliest_int <- fin_yr_vec[fin_yr_vec == params$earliest_historical_fy] %>% as.integer()
+  
+  
+  tib %>% 
+    filter(as.integer(fin_yr) >= earliest_int, 
+           as.integer(fin_yr) <= most_recent_int, 
+           fin_yr != "2020/21", 
+           geog %in% CA)
+}
+
+
+get_minmax_rates <- function(tib){
+  # creates tibble containing min and max rates 
+  
+  tib %>% 
+    mutate(Rate = 100000*obd/Pop) %>% 
+    group_by(months) %>% 
+    summarise(Min_rate = min(Rate), Max_rate = max(Rate))
+}
+
+get_avg_rate <- function(tib){
+  #calculates Avg counts for each Month 
+  tib %>% 
+    group_by(months) %>% 
+    summarise(Avg_rate = 100000*sum(obd)/sum(Pop), .groups = "drop") 
+}
+
+get_sum_counts_pop <- function(tib){
+  # creates tibble containing aggregated rates for each month
+  tib %>% 
+    group_by(months) %>% 
+    summarise(Total_Counts = sum(obd), Total_Pop = sum(Pop)) %>% 
+    ungroup()
+}
+
+
+
+#function used in get_current_rates and get_current_totals
+get_pre_currents <- function(tib, CA) {
+  
+  # vector element containing current fin_yr
+  current_fin_yr <- tib %>% 
+    select(fin_yr) %>% 
+    distinct() %>% 
+    pull() %>% 
+    max()
+  
+  tib %>% 
+    filter(fin_yr == current_fin_yr) %>% 
+    filter(geog == CA) %>% 
+    drop_na(obd) %>% 
+    mutate(Pop = if_else(is.na(Pop), lag(Pop, n=sum(is.na(Pop))), Pop)) 
+}
+
+
 
 get_rates <- function(tib, CA, pop_objfile){
   #get last 7yrs data (excluding 2021) in terms of rates
@@ -131,13 +188,17 @@ get_rates <- function(tib, CA, pop_objfile){
   prev5_rate <- left_join(min_max_rate, avg_rate, by = "months") %>% 
     left_join(., total_counts_pop, by = "months") 
   
-  
-  #create current rates, join with prev5 year rates 
-  current_rate <- get_current_rate(tib_joined, CA)  
-  
-  current_totals <- get_current_totals(tib_joined, CA)
+  current_rate <-  
+    get_pre_currents(tib_joined, CA) %>% 
+    get_avg_rate() %>% 
+    rename(Current_rate = Avg_rate) 
 
-  # join rates and totals into tibble
+  current_totals <- 
+    get_pre_currents(tib_joined, CA) %>% 
+    get_sum_counts_pop() %>% 
+    rename(Current_Counts = Total_Counts, Current_Pop = Total_Pop)
+
+  # join historic and current rates and totals into tibble
   df <- left_join(prev5_rate, current_rate, by = "months") %>%  
         left_join(.,  current_totals, by = "months")  %>% 
     mutate(Month_labels = factor(months, levels = c(4:12, 1:3),
@@ -146,129 +207,64 @@ get_rates <- function(tib, CA, pop_objfile){
                                             "Dec", "Jan", "Feb", "Mar"),
                                  ordered = TRUE)) 
  
-  # ordered vector of all FYs 
-  all_dates_from_xlfile <- tib_joined %>% 
-    select(fin_yr) %>% 
+  # ordered vector of all FYs
+  all_dates_from_xlfile <- tib_joined %>%
+    select(fin_yr) %>%
     distinct()
 
-  list(df, all_dates_from_xlfile)
+ list(df, all_dates_from_xlfile)
 }
 
-# functions utilised by "Get Rates" function ------------------
 
- # vector with ordered levels of fin_yr
+# the dataset is split into two lists according to "code9" or "All standard" value of 
+# delay reasons
+get_rates_years_of_interest <- function(df, delay_reason, CA_of_interest, pop_objfile=LA_pop_18plus){
+  
+  df_split <- df %>%
+    filter(geog %in% CA_of_interest) %>% 
+    filter(delay_reasons %in% delay_reason) %>%
+    split(.$delay_reasons) 
+  
+  # for each (2) delay_reason tibble, the historic and current aggreagate rates for each
+  # Council Area are calculated.  
+  map(df_split, function(x) 
+    map(CA_of_interest, function(y) get_rates(tib = x, CA= y, pop_objfile))%>% 
+      set_names(CA_of_interest_named_vec)
+  ) 
+} 
+# ---------------------
+
+# vector with ordered levels of fin_yr
 create_fctorder_finyr <- function(tib) {
- # fin_yr_order_fct <- 
-    tib %>% 
-    mutate(fin_yr = factor(fin_yr)) %>% 
-    select(fin_yr) %>% 
-    pull() %>% 
-    levels() 
+ # fin_yr_order_fct <-
+    tib %>%
+    mutate(fin_yr = factor(fin_yr)) %>%
+    select(fin_yr) %>%
+    pull() %>%
+    levels()
 }
 
+#  Create plots and tables for each GGC Council Area and Scotland -----------------
 # select the latest fin_yr from the column fin_yr 
 # used within get_pre_currents function
 select_current_fy <- function(tib) {
-  tib %>% 
-    select(fin_yr) %>% 
-    distinct() %>% 
-    pull() %>% 
+  tib %>%
+    select(fin_yr) %>%
+    distinct() %>%
+    pull() %>%
     max()
 }
 
-select_FY_years <- function(tib){
-## this function first creates a vector of unique, ordered fin_years
-## the value of the level for the most recent and earliest inputted fin_yrs is obtained
-## finally, the orginal tibble is filtered by fin_yr levels between and including
-## these two extremes  
-  
-## this function used within get_historical_counts
- 
-  fin_yr_vec <- 
-    tib %>% 
-    select(fin_yr) %>% 
-    distinct() %>% 
-    pull()
-
-  most_recent_int <- fin_yr_vec[fin_yr_vec == params$most_recent_historical_fy] %>% as.integer()
-  earliest_int <- fin_yr_vec[fin_yr_vec == params$earliest_historical_fy] %>% as.integer()
+create_regional_plot <- function(tibble_name = rates_permonth, index=NULL, delay_reason=NULL, CA_of_interest) {
    
-
-  tib %>% 
-    filter(as.integer(fin_yr) >= earliest_int, as.integer(fin_yr) <= most_recent_int, fin_yr != "2020/21")
-}
-
-#includes values from years selected between earlies and most recent historical inclusive
-get_historic_counts <- function(tib, CA) {
-  select_FY_years(tib) %>% 
-    filter(geog %in% CA) 
-}
-
-
-get_minmax_rates <- function(tib){
-  # Select min and max historical rates 
-  
-  tib %>% 
-    mutate(Rate = 100000*obd/Pop) %>% 
-    group_by(months) %>% 
-    summarise(Min_rate = min(Rate), Max_rate = max(Rate))
-}
-
-get_avg_rate <- function(tib){
-  ## Select avg historical rates
-  #calculates Avg counts for each Month 
-  tib %>% 
-    group_by(months) %>% 
-    summarise(Avg_rate = 100000*sum(obd)/sum(Pop), .groups = "drop") 
-}
-
-get_sum_counts_pop <- function(tib){
-  tib %>% 
-    group_by(months) %>% 
-    summarise(Total_Counts = sum(obd), Total_Pop = sum(Pop)) %>% 
-    ungroup()
-}
-
-
-
-#function used in get_current_rates and get_current_totals
-get_pre_currents <- function(tib, CA) {
-  tib %>% 
-    filter(fin_yr == select_current_fy(tib)) %>% 
-    filter(geog == CA) %>% 
-    drop_na(obd) %>% 
-    mutate(Pop = if_else(is.na(Pop), lag(Pop, n=sum(is.na(Pop))), Pop)) 
-}
-
-get_current_rate <- function(tib, CA){
-  get_pre_currents(tib, CA) %>% 
-    get_avg_rate() %>% 
-    rename(Current_rate = Avg_rate) 
-}
-
-
-get_current_totals <- function(tib, CA) {
-  get_pre_currents(tib, CA) %>%  
-    get_sum_counts_pop() %>% 
-    rename(Current_Counts = Total_Counts, Current_Pop = Total_Pop)
-  
-}  
-
-#  Create plots and tables for each GGC Council Area and Scotland -----------------
-
-# These two functions utilise the "get_prev_7yr_rates" function
-
-create_7yr_plot <- function(tibble_name = recent_7yr_rates, index=NULL, delay_reason=NULL, CA_of_interest) {
-  # get_prev5 selects last 6 years but excludes FY 20/21 
   # extracts current FY from df
   
   fun_df <- tibble_name[[delay_reason]][[index]]
   
-  #selects most recent FY from those investigated in recent_7yr_rates
+  # selects most recent FY from those investigated in df_main tibble
+
   current_fy <- select_current_fy(fun_df[[2]])
 
-    
-  
   # Plotly plot
   #sets margin values in mrg variable
   mrg <- list(l = 50, r = 50,
@@ -326,7 +322,7 @@ create_7yr_plot <- function(tibble_name = recent_7yr_rates, index=NULL, delay_re
 
 }
 
-create_current_FY_tables <- function(tibble_name = recent_7yr_rates, index=NULL, delay_reason, CA_of_interest){
+create_current_FY_tables <- function(tibble_name = rates_permonth, index=NULL, delay_reason, CA_of_interest){
   
   fun_df <- tibble_name[[delay_reason]][[index]]
   
@@ -347,16 +343,14 @@ create_current_FY_tables <- function(tibble_name = recent_7yr_rates, index=NULL,
     cols_width(
       everything() ~ px(70)
     )
-  
 }
 
-# -------------------------------------------------------------------------------
 
+# get historical and current discharge rates for GGC Council Areas and Scotland -----
 
-
-# Create tibbles for analysis ----------------------------------------------------
 create_formatted_rate <- function(df){
   ### Extract Rate field row as single value
+  ## used in create_bedrate_list
   value <- df %>%
     select(Rate) %>%
     pull()
@@ -377,10 +371,9 @@ calculate_bed_rates <- function(tib, delay_reason, mon, FYTD_flag) {
   
   # calculates max value of fin_yr char vector in tib, 
   # which is current year
-  current_year <- create_fctorder_finyr(tib) %>% 
-    max()  
+  current_year <- select_current_fy(tib)
   
-  # filter by current year and delay_reason
+    # filter by current year and delay_reason
   tib <- tib %>%
     filter(delay_reasons == delay_reason, fin_yr == current_year) 
     
@@ -412,7 +405,7 @@ create_bedrate_list <- function(...){
   
   arglist <- list(...)
   
-  # save copy of orig tib
+  # save copy of orig tibble
   orig_tib <- arglist[[1]]
   
   # calculate avg scot rate
@@ -530,7 +523,10 @@ calculate_prev_pc_change <- function(tib){
     mutate(pc_change_prev = ((Rate-Prev_Rate)/Prev_Rate))
 }
 
-get_pc_change_prev_time <- function(tib, delay_reason,
+# creates a tibble containing rows of all individual GGC entries, 
+# the aggregate GGC and aggregate Scotland values.
+# fields included are the location, current rate and % change from previous time point
+get_pc_change_previous <- function(tib, delay_reason,
                                     mon, FYTD_flag = FALSE, pop_objfile = LA_pop_18plus) {
   #Individual HSCP regions
   tab_month1 <- join_current_prec_tibbles(tib, delay_reason,
@@ -556,14 +552,15 @@ get_pc_change_prev_time <- function(tib, delay_reason,
 }
 
 
+# a tibble is created that ranks each HSCP - 
+# lower rate =  lower rank
 get_rank <- function(tib, delay_reason, mon, FYTD_flag){
-  #Ranks CAs according to Rate - lower rating for lower Rate
   
-  #Get bedrates and rank (includes Scotland)
+  #Get rates for localities and rank them (includes Scotland)
   tib <- calculate_bed_rates(tib, delay_reason, mon, FYTD_flag) %>%
     mutate(Rank = min_rank(Rate))
   
-  # assign Scotland rank as NA
+  # remove "Scotland" rank
   tib$Rank[tib$geog=="Scotland"] <- NA
   
   #rerank without Scotland
@@ -571,20 +568,58 @@ get_rank <- function(tib, delay_reason, mon, FYTD_flag){
     select(geog, Rank)
 }
 
+# calculates % change of the aggregated GGC region vs previous 5yr period
+aggregate_5yr_ggc <- function(tib=rates_permonth, delay_reason, CA_no_Scotland, mon) {
+  # obtains previous historic avg for each GGC region
+  map_df(CA_no_Scotland, ~get_historic_comparisons(tib, delay_reason, CA=.x, mon)) %>%
+    bind_cols(geog = names(CA_no_Scotland)) %>%
+    # aggregates counts and totals of prev and current years
+    summarise(Prev_Counts = sum(Total_Counts), Prev_Pop = sum(Total_Pop),
+              Current_Counts = sum(Current_Counts), Current_Pop = sum(Current_Pop)) %>%
+    # and calculates % change vs prev 5yr period for aggregate GGC period
+    mutate(geog = "GGC HSCPs",
+           pc_change_Avg_5yr = ((Current_Counts/Current_Pop)- (Prev_Counts/Prev_Pop))/ (Prev_Counts/Prev_Pop)) %>%
+    select(geog, pc_change_Avg_5yr)
+}
+
+# gets historic avg rates and current rates for a geographic region in 1 row of data
+get_historic_comparisons <- function(tib, delay_reason, CA, mon) {
+  
+  calender_months <- c("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
+  
+  #selects numeric value of month as per calender_months
+  month_int <- 
+    match(params$Report_month, calender_months) 
+  
+  tib[[delay_reason]][[CA]][[1]] %>% # tibble containing historic data
+    filter(months == month_int) %>%
+    mutate(pc_change_Avg_5yr = ((Current_Counts/Current_Pop) - (Total_Counts/Total_Pop))/(Total_Counts/Total_Pop)) %>%
+    mutate(geog = names(CA)) 
+}
+
 
 
 # calculates % change of current vs prev 5 year avg for GGC regions and Scotland
 # Excludes year 20/21
-get_all_5yr_rates <- function(tib=recent_7yr_rates, delay_reason, CA_list, CA_no_Scotland, mon) {
-  get_all_5yr_stats(tib=recent_7yr_rates, delay_reason, CA_list, mon) %>%
-    bind_rows(., aggregate_5yr_ggc(tib=recent_7yr_rates, delay_reason, CA_no_Scotland, mon))
+calculate_rate_change <- function(tib=rates_permonth, delay_reason, CA_list, CA_no_Scotland, mon) {
+  map_df(CA_list, ~get_historic_comparisons(tib, delay_reason, CA=.x, mon)) %>% 
+    bind_cols(geog = names(CA_list)) %>% 
+    select(geog, pc_change_Avg_5yr) %>%
+    bind_rows(., aggregate_5yr_ggc(tib=rates_permonth, delay_reason, CA_no_Scotland, mon))
   
 }
 
 get_summary_table <- function(tib=df_main, mon, delay_reason, FYTD_flag) {
-  get_pc_change_prev_time(tib, delay_reason, mon, FYTD_flag, pop_objfile = LA_pop_18plus) %>%
-    left_join(., get_rank(tib, delay_reason, mon, FYTD_flag), by = "geog") %>%
-     left_join(., get_all_5yr_rates(recent_7yr_rates, delay_reason, CA_list = CA_of_interest, CA_no_Scotland, mon), by = "geog") %>%
+  # get_pc_change_previous - tib containing rows of GGC HSCPs, aggregate GGC and Scot,
+  #                           fields: geog, rate and % change from previous time period
+  
+  # get_rank - tib containing geog and rank
+  
+  # calculate_rate_change - 
+  
+  get_pc_change_previous(tib, delay_reason, mon, FYTD_flag, pop_objfile = LA_pop_18plus) %>%
+    left_join(., get_rank(tib, delay_reason, mon, FYTD_flag), by = "geog") %>% 
+     left_join(., calculate_rate_change(rates_permonth, delay_reason, CA_list = CA_of_interest, CA_no_Scotland, mon), by = "geog") %>%
      relocate(Rank, .after = "geog")
 }
 
@@ -659,7 +694,7 @@ create_CArate_plot <- function(df, delay_reason, fydate, mon, FYTD_flag, g_rate 
 
 
 
-# create_7yr_table <- function(tibble_name = recent_7yr_rates, index=NULL, CNeeds_string, CA_of_interest){
+# create_7yr_table <- function(tibble_name = rates_permonth, index=NULL, CNeeds_string, CA_of_interest){
 # 
 #   fun_df <- tibble_name[[CNeeds_string]][[index]]
 # 
@@ -771,7 +806,7 @@ get_council_area_names <- function(tib){
 # }
 
 create_arglist <- function(i, CNS, CA_of_interest){
-  list(recent_7yr_rates, delay_reason = CNS, CA_of_interest = CA_of_interest[i])
+  list(rates_permonth, delay_reason = CNS, CA_of_interest = CA_of_interest[i])
 }
 
 get_month_factor_level <- function(tib, mon) {
@@ -818,36 +853,17 @@ modify_ggc_join_tibbles <- function(tib){
 
 
 
-  # create tibble of CA regions of interest
-#map_df(CA_of_interest, ~get_prev_5yr_avg_rate(tib_FY_CA, .x, fydate, mon="January"))
-
-get_5yr_comparisons <- function(tib = recent_7yr_rates, delay_reason, CA, mon) {
-  tib[[delay_reason]][[CA]]%>%
-    filter(Months == mon) %>%
-    mutate(pc_change_Avg_5yr = ((Current_Counts/Current_Pop) - (Total_Counts/Total_Pop))/(Total_Counts/Total_Pop)) %>%
-    mutate(geog = names(CA)) #%>%
-  # select(geog, pc_change_Avg_5yr)
-}
+ 
 
 # ---------------------------------------------------
-get_all_5yr_stats <- function(tib=recent_7yr_rates, delay_reason, CA_list, mon) {
-  map_df(CA_list, ~get_5yr_comparisons(tib, delay_reason, CA=.x, mon)) %>%
+get_all_5yr_stats <- function(tib=rates_permonth, delay_reason, CA_list, mon) {
+  map_df(CA_list, ~get_historic_comparisons(tib, delay_reason, CA=.x, mon)) %>%
     bind_cols(geog = names(CA_list)) %>%
     select(geog, pc_change_Avg_5yr)
 
 }
 
-# calculate % change of the combined GGC HSCPs of current value compared to the prev 5 year avg
-# Excludes year 20/21
-aggregate_5yr_ggc <- function(tib=recent_7yr_rates, delay_reason, CA_no_Scotland, mon) {
-  map_df(CA_no_Scotland, ~get_5yr_comparisons(tib, delay_reason, CA=.x, mon)) %>%
-    bind_cols(geog = names(CA_no_Scotland)) %>%
-    summarise(Prev_Counts = sum(Total_Counts), Prev_Pop = sum(Total_Pop),
-              Current_Counts = sum(Current_Counts), Current_Pop = sum(Current_Pop)) %>%
-    mutate(geog = "GGC HSCPs",
-           pc_change_Avg_5yr = ((Current_Counts/Current_Pop)- (Prev_Counts/Prev_Pop))/ (Prev_Counts/Prev_Pop)) %>%
-    select(geog, pc_change_Avg_5yr)
-}
+
 
 
 
