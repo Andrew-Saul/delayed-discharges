@@ -162,13 +162,13 @@ list_t[[count]] <- do.call(plot_table_func_list[2], arglist_i)
 ```{r tabledata}
 # data used for first 2 tabs and for summary stats
 ## each obj contains a list of the 1-scot rate, 2-ggc rate and 3-all individual HSCP rates
-code9_mon <- create_bedrate_list(tib=df_main, delay_reason = "All code 9 delay reasons", mon=params$Report_month, FYTD_flag=FALSE)
+code9_mon <- create_bedrate_list(tib=df_main, delay_reason = delay_reasons_list[1], mon=params$Report_month, FYTD_flag=FALSE)
 
-code9_fytd <- create_bedrate_list(tib=df_main, delay_reason = "All code 9 delay reasons", mon=params$Report_month, FYTD_flag=TRUE)
+code9_fytd <- create_bedrate_list(tib=df_main, delay_reason = delay_reasons_list[1], mon=params$Report_month, FYTD_flag=TRUE)
 
-standard_mon <- create_bedrate_list(tib=df_main, delay_reason = "All Standard", mon=params$Report_month, FYTD_flag=FALSE)
+standard_mon <- create_bedrate_list(tib=df_main, delay_reason = delay_reasons_list[2], mon=params$Report_month, FYTD_flag=FALSE)
 
-standard_fytd <- create_bedrate_list(tib=df_main, delay_reason = "All Standard", mon=params$Report_month, FYTD_flag=TRUE)
+standard_fytd <- create_bedrate_list(tib=df_main, delay_reason = delay_reasons_list[2], mon=params$Report_month, FYTD_flag=TRUE)
 ```
 
 
@@ -195,7 +195,7 @@ mon_code9_rate_changes <- get_summary_table(tib=df_main, mon = params$Report_mon
 
 # Standard
 ##  fytd rate and changes
-fytd_standard_rate_changes <- get_summary_table(tib=df_main, mon, delay_reason = "All Standard", FYTD = TRUE) %>% 
+fytd_standard_rate_changes <- get_summary_table(tib=df_main, mon = params$Report_month, delay_reason = "All standard", FYTD = TRUE) %>% 
   arrange(Rank) %>% 
   select(-c(pc_change_Avg_5yr))
 
@@ -204,7 +204,7 @@ fytd_standard_rate_changes <- get_summary_table(tib=df_main, mon, delay_reason =
 # mon_standard_rate_changes <- fytd_standard_rankorder %>% 
 #   left_join(.,get_summary_table(mon, CNeeds_string = "Standard", FYTD = FALSE)) 
 
-mon_standard_rate_changes <- get_summary_table(tib=df_main, mon, delay_reason = "All Standard", FYTD = FALSE) %>% 
+mon_standard_rate_changes <- get_summary_table(tib=df_main, mon = params$Report_month, delay_reason = "All standard", FYTD = FALSE) %>% 
      arrange(Rank)                           
 
 ```
