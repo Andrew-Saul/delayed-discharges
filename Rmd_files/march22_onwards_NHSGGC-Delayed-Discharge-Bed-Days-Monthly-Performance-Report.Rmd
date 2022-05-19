@@ -28,6 +28,16 @@ librarian::shelf(tidyverse, here, fs, rvest ,xml2, openxlsx, lubridate, readxl, 
 source(here::here("scripts", "march22_funcs.R"))
 source(here::here("scripts", "populations.R"))
 ```
+
+```{r}
+# for use in Appendix titles and CA_rate_plots
+if(params$Report_month %in% c("January", "Februrary", "March")){
+      year_begin <- params$Report_year-1
+    } else {
+      year_begin <- params$Report_year
+    }
+```
+
 **NOTES**
 
 Data Source:
@@ -55,14 +65,11 @@ does not apply to Code 9 delays.
 
 # Current FY in format "yyyy/yy"
 # fydate <- convert_calender_to_FY(params$Report_year, params$Report_month)
-# fydate_text <- seperate_years_by_slash(fydate)
+# year_begin <- seperate_years_by_slash(fydate)
 
 # council areas of interest
  CA_of_interest <- c("Scotland", "East Dunbartonshire", "East Renfrewshire", "Glasgow City", "Inverclyde", "Renfrewshire", "West Dunbartonshire") %>% set_names()
 
-#CA_of_interest <- c("Renfrewshire", "Glasgow City")
-
-CA_of_interest_named_vec <- CA_of_interest %>% set_names()
 # ---------------------------------------------------------------------------------------
 CA_no_Scotland <- c("East Dunbartonshire", "East Renfrewshire", "Glasgow City", "Inverclyde", "Renfrewshire", "West Dunbartonshire") %>% 
   set_names(.)
@@ -89,7 +96,7 @@ LA_pop_18plus <- getLAPops(age_lowest = 18)
 ```{r download-NRS-recent-data}
 
 #downloading two excel files that contain standard and code9 delays respectively
-download_data(month=params$Report_month, year=params$Report_year)
+#download_data(month=params$Report_month, year=params$Report_year)
 
 ```
 
@@ -112,10 +119,13 @@ standard_187475plus_ojb <- create_FY_authority_187475plus(xl_file = standard_xl_
 # excludes FY 2016/17 and 2020/21
 
 df_main <- create_main_tibble(code9_187475plus_obj, standard_187475plus_ojb) 
-  
+
+# current_fy used for header outputs
+current_fy <- as.character(select_current_fy(df_main)) 
+
 #check that no NA obd values are present.  Send message if obd NAs are present
 # and remove inaccurate df_main tibble from environment to cause knitr to error
-if(count(df_main %>% filter(is.na(obd)))>0){
+if(count(df_main %>% filter(is.na(counts)))>0){
   rm(df_main)
   stop("There are missing obd values in the dataset.  Please recheck")
   
@@ -152,15 +162,15 @@ plot_table_func_list <- c("create_regional_plot", "create_current_FY_tables")
 
 
 for (count in seq_along(CA_of_interest)){ 
-  arglist_i <- list(rates_permonth, index=count, delay_reason=delay_reasons_list[[2]], CA_of_interest = CA_of_interest_named_vec[count])
+  arglist_i <- list(rates_permonth, index=count, delay_reason=delay_reasons_list[[1]], CA_of_interest = CA_of_interest[count])
 
 list_p[[count]] <- do.call(plot_table_func_list[1], arglist_i)
 list_t[[count]] <- do.call(plot_table_func_list[2], arglist_i)
 }
 ```
 
-```{r tabledata}
-# data used for first 2 tabs and for summary stats
+```{r tab12summaryappendix}
+# data used for first 2 tab- plots and for summary stats
 ## each obj contains a list of the 1-scot rate, 2-ggc rate and 3-all individual HSCP rates
 code9_mon <- create_bedrate_list(tib=df_main, delay_reason = delay_reasons_list[1], mon=params$Report_month, FYTD_flag=FALSE)
 
@@ -213,13 +223,13 @@ mon_standard_rate_changes <- get_summary_table(tib=df_main, mon = params$Report_
 
 
 ```{r appendixtables}
-fytd_code9_app <- create_appendix(tib =tib_FY_CA, CNeeds_string = "Code 9", fydate=fydate, mon = params$Report_month, FYTD_flag = TRUE)
+fytd_code9_app <- create_appendix(tib =df_main, delay_reason = delay_reasons_list[1], mon = params$Report_month, FYTD_flag = TRUE)
 
-mon_code9_app <- create_appendix(tib =tib_FY_CA, CNeeds_string = "Code 9", fydate=fydate, mon = params$Report_month, FYTD_flag = FALSE)
+mon_code9_app <- create_appendix(tib =df_main, delay_reason = delay_reasons_list[1], mon = params$Report_month, FYTD_flag = FALSE)
 
-fytd_standard_app <- create_appendix(tib =tib_FY_CA, CNeeds_string = "Standard", fydate=fydate, mon = params$Report_month, FYTD_flag = TRUE)
+fytd_standard_app <- create_appendix(tib =df_main, delay_reason = delay_reasons_list[1], mon = params$Report_month, FYTD_flag = TRUE)
 
-mon_standard_app <- create_appendix(tib =tib_FY_CA, CNeeds_string = "Standard", fydate=fydate, mon = params$Report_month, FYTD_flag = FALSE)
+mon_standard_app <- create_appendix(tib =df_main, delay_reason = delay_reasons_list[1], mon = params$Report_month, FYTD_flag = FALSE)
 ```
 
 ## Code 9 Delays {.tabset}
@@ -227,16 +237,15 @@ mon_standard_app <- create_appendix(tib =tib_FY_CA, CNeeds_string = "Standard", 
 ### `r params$Report_month`
 
 ```{r}
-create_CArate_plot(scot_ggc_code9_mon[[3]], CNeeds_string = "Code 9", fydate = fydate, mon = params$Report_month, FYTD_flag = FALSE,
-                   g_rate = scot_ggc_code9_mon[[2]], s_rate = scot_ggc_code9_mon[[1]]) 
+create_CArate_plot(code9_mon[[3]], delay_reason = delay_reasons_list[[1]],  mon = params$Report_month, FYTD_flag = FALSE,
+                   g_rate = code9_mon[[2]], s_rate = code9_mon[[1]]) 
 
 ```
 
 ### FY to Date
 
 ```{r}
-create_CArate_plot(scot_ggc_code9_fytd[[3]], CNeeds_string = "Code 9", fydate = fydate, mon = params$Report_month, FYTD_flag = TRUE,
-                   g_rate = scot_ggc_code9_fytd[[2]], s_rate = scot_ggc_code9_fytd[[1]]) 
+create_CArate_plot(code9_fytd[[3]], delay_reason = delay_reasons_list[[1]],  mon = params$Report_month, FYTD_flag = TRUE, g_rate = code9_fytd[[2]], s_rate = code9_fytd[[1]]) 
 ```
 
 ### `r CA_of_interest[1]`
@@ -299,8 +308,8 @@ list_t[[7]]
 
 #### Table 1 
 
-A total of  `r get_written_summary_data(scot_ggc_code9_fytd)[[1]]` of 6 NHSGGC HSCPs have rates above the Scotland average. <br /> 
-`r if (get_written_summary_data(scot_ggc_code9_fytd)[[1]]>0) {paste("They are",paste0( get_written_summary_data(scot_ggc_code9_fytd)[[2]], collapse = ", "))}`.
+A total of  `r get_written_summary_data(code9_fytd)[[1]]` of 6 NHSGGC HSCPs have rates above the Scotland average. <br /> 
+`r if (get_written_summary_data(code9_fytd)[[1]]>0) {paste("They are",paste0( get_written_summary_data(code9_fytd)[[2]], collapse = ", "))}`.
 
 
 ```{r}
@@ -312,17 +321,17 @@ create_fytd_dd_table(tib =fytd_code9_rate_changes, title_name = "**FYTD – Dela
 
 #### Table 2
 
-A total of  `r get_written_summary_data(scot_ggc_code9_mon)[[1]]` of 6 NHSGGC HSCPs have rates above the Scotland average. <br /> 
-`r if (get_written_summary_data(scot_ggc_code9_mon)[[1]]>0) {paste("They are",paste0( get_written_summary_data(scot_ggc_code9_mon)[[2]], collapse = ", "))}`.
+A total of  `r get_written_summary_data(code9_mon)[[1]]` of 6 NHSGGC HSCPs have rates above the Scotland average. <br /> 
+`r if (get_written_summary_data(code9_mon)[[1]]>0) {paste("They are",paste0( get_written_summary_data(code9_mon)[[2]], collapse = ", "))}`.
 
 ```{r}
 create_month_dd_table(tib =mon_code9_rate_changes, title_name = "**{params$Report_month} {params$Report_year}– Delayed Discharge Bed Days (Code 9 Delays)**")
 ```
 
-### Appendix 1 : HSCP Rankings for Financial Year to date 20`r fydate_text` 
+### Appendix 1 : HSCP Rankings for Financial Year to date `r current_fy` 
 
 ```{r}
-create_appendix1(tib=fytd_code9_app, title_name = "**HSCP Rankings for Financial Year to date {fydate_text} (April 2021 to {params$Report_month} {params$Report_year})**")
+create_appendix1(tib=fytd_code9_app, title_name = "**HSCP Rankings for Financial Year to date {year_begin} (April 2021 to {params$Report_month} {params$Report_year})**") 
 
 ```
 
@@ -336,7 +345,7 @@ create_appendix2(tib=mon_code9_app, title_name = "**Appendix 2: HSCP Rankings fo
 
 ```{r}
 for (count in seq_along(CA_of_interest)){ 
-  arglist_i <- list(all_prev_rates, index=count, CNeeds_string="Standard", CA_of_interest = CA_of_interest[count])
+  arglist_i <- list(rates_permonth, index=count, delay_reason=delay_reasons_list[[2]], CA_of_interest = CA_of_interest[count])
 
 list_p[[count]] <- do.call(plot_table_func_list[1], arglist_i)
 list_t[[count]] <- do.call(plot_table_func_list[2], arglist_i)
@@ -346,15 +355,16 @@ list_t[[count]] <- do.call(plot_table_func_list[2], arglist_i)
 ### `r params$Report_month`
 
 ```{r}
-create_CArate_plot(scot_ggc_standard_mon[[3]], CNeeds_string = "Standard", fydate = fydate, mon = params$Report_month, FYTD_flag = FALSE,
-                   g_rate = scot_ggc_standard_mon[[2]], s_rate = scot_ggc_standard_mon[[1]]) 
+create_CArate_plot(code9_mon[[3]], delay_reason = delay_reasons_list[[2]],  mon = params$Report_month, FYTD_flag = FALSE,
+                   g_rate = code9_mon[[2]], s_rate = code9_mon[[1]]) 
+
 ```
 
 ### FY to Date
 
 ```{r}
-create_CArate_plot(scot_ggc_standard_fytd[[3]], CNeeds_string = "Standard", fydate = fydate, mon = params$Report_month, FYTD_flag = TRUE,
-                   g_rate = scot_ggc_standard_fytd[[2]], s_rate = scot_ggc_standard_fytd[[1]]) 
+create_CArate_plot(code9_fytd[[3]], delay_reason = delay_reasons_list[[2]],  mon = params$Report_month, FYTD_flag = TRUE, g_rate = code9_fytd[[2]], s_rate = code9_fytd[[1]]) 
+
 ```
 
 ### `r CA_of_interest[1]`
@@ -417,8 +427,8 @@ list_t[[7]]
 
 #### Table 3
 
-A total of  `r get_written_summary_data(scot_ggc_standard_fytd)[[1]]` of 6 NHSGGC HSCPs have rates above the Scotland average. <br /> 
-`r if (get_written_summary_data(scot_ggc_standard_fytd)[[1]]>0) {paste("They are",paste0( get_written_summary_data(scot_ggc_standard_fytd)[[2]], collapse = ", "))}`.
+A total of  `r get_written_summary_data(standard_fytd)[[1]]` of 6 NHSGGC HSCPs have rates above the Scotland average. <br /> 
+`r if (get_written_summary_data(standard_fytd)[[1]]>0) {paste("They are",paste0( get_written_summary_data(standard_fytd)[[2]], collapse = ", "))}`.
 
 
 ```{r}
@@ -429,17 +439,17 @@ create_fytd_dd_table(tib =fytd_standard_rate_changes, title_name = "**FYTD – D
 
 #### Table 4
 
-A total of  `r get_written_summary_data(scot_ggc_standard_mon)[[1]]` of 6 NHSGGC HSCPs have rates above the Scotland average. <br /> `r if (get_written_summary_data(scot_ggc_standard_mon)[[1]]>0) {paste("They are",paste0( get_written_summary_data(scot_ggc_standard_mon)[[2]], collapse = ", "))}`.
+A total of  `r get_written_summary_data(standard_mon)[[1]]` of 6 NHSGGC HSCPs have rates above the Scotland average. <br /> `r if (get_written_summary_data(standard_mon)[[1]]>0) {paste("They are",paste0( get_written_summary_data(standard_mon)[[2]], collapse = ", "))}`.
 
 ```{r}
 create_month_dd_table(tib =mon_standard_rate_changes, title_name = "**{params$Report_month} {params$Report_year}– Delayed Discharge Bed Days (Standard Delays)**")
 
 ```
 
-### Appendix 1 : HSCP Rankings for Financial Year to date 20`r fydate_text` 
+### Appendix 1 : HSCP Rankings for Financial Year to date 20`r current_fy` 
 
 ```{r}
-create_appendix1(tib=fytd_standard_app, title_name = "**HSCP Rankings for Financial Year to date {fydate_text} (April 2021 to {params$Report_month} {params$Report_year})**")
+create_appendix1(tib=fytd_standard_app, title_name = "**HSCP Rankings for Financial Year to date {current_fy} (April 2021 to {params$Report_month} {params$Report_year})**")
 
 ```
 
