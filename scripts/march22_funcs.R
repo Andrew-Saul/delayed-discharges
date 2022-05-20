@@ -49,13 +49,67 @@ download_data <- function(filepath_url, month, year){
 }
 
 # excel file to tibble -------------------------------------------------
-create_FY_authority <- function(xl_file, sheet_name, delay_reason) {
-  ## Extracts relevant info from excel sheet
+
+fill_missing_dates <- function(tmp_list_region, region) {
   
-  read_excel(xl_file, sheet = sheet_name) %>% 
-    select(c(fin_yr, month, age_groups, delay_reasons, geog, counts)) %>%
-    filter(age_groups == "18+", delay_reasons == delay_reason)
+  # determine the first and last date entry of each region
+  first_date_tibble_entry <- 
+    tmp_list_region %>% 
+    slice(1)  %>% 
+    select(month) %>% 
+    pull() %>% 
+    as.Date() 
+  
+  last_date_tibble_entry <- 
+    tmp_list_region %>% 
+    slice(n()) %>% 
+    select(month) %>% 
+    pull() %>% 
+    as.Date() 
+  
+  # if the first row is missing, add it with the fields which are constant, except
+  # counts which is given a value 0
+  if(first_date_tibble_entry !=as.Date("2016-07-01")){
+    tmp_list_region <- 
+      tibble(month = as.Date("2016-07-01"), delay_reasons = as.character(delay_reason), 
+        geog = as.character(region), counts = as.integer(0)) %>% 
+      bind_rows(., tmp_list_region)
+  }
+  
+  # only need to add the date field if the last entry is not present,
+  # as all fields will be filled down 
+  if(last_date_tibble_entry !=ym(paste(params$Report_year, params$Report_month))){
+    tmp_list_region <- 
+      tibble(month = ym(paste(params$Report_year, params$Report_month))) %>% 
+      bind_rows(tmp_list_region, .) 
+  }
+  
+  # use pad to fill in missing dates in sequential order
+  # create the fin_yr field . if month => 4, the 1st year of fy will be the same 
+  # as the date, otherwise it will be the year previous 
+  tmp_list_region %>% 
+    padr::pad() %>%  # completes empty date entries
+    tidyr::fill(delay_reasons, geog) %>% 
+    mutate(fin_yr = if_else(month(month)>=4, 
+                            glue::glue("{year(month)}/{str_sub(year(month)+1,3,4)}"),
+                            glue::glue("{year(month)-1}/{str_sub(year(month),3,4)}"))) %>% 
+    mutate(counts = if_else(is.na(counts), 0, counts))
 }
+
+create_FY_authority <- function(xl_file, sheet_name, delay_reason) {
+  # excludes NHS names from inclusion in analysis
+ tmp_list <-  read_excel(xl_file, sheet = sheet_name) %>% 
+    select(c(month, age_groups, delay_reasons, geog, obd)) %>%
+    filter(age_groups != "18+", delay_reasons == delay_reason,
+           !str_detect(geog, "NHS"), geog!="Other") %>% 
+    mutate(month = ymd(month)) %>%
+    group_by(month, delay_reasons, geog) %>%
+    summarise(counts= sum(obd), .groups = "drop") %>% 
+   split(.$geog)
+
+ map2(tmp_list, names(tmp_list), fill_missing_dates) 
+}
+
 
 create_FY_authority_187475plus <- function(xl_file, sheet_name, delay_reason) {
   ## Extracts relevant info from excel sheet
