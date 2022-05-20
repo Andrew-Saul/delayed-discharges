@@ -1,11 +1,3 @@
-# Libraries ---------------------------------------------------------------
-# if(!require(librarian)){
-#   install.packages("librarian")
-#   library(librarian)
-# }
-# 
-# librarian::shelf(tidyverse, here, fs, readxl, janitor, glue, rlang)
-
 
 # Scripts to acquire uptodate date from NRS --------------------------------------------------------
 
@@ -50,7 +42,7 @@ download_data <- function(filepath_url, month, year){
 
 # excel file to tibble -------------------------------------------------
 
-fill_missing_dates <- function(tmp_list_region, region) {
+fill_missing_dates <- function(tmp_list_region, region, delay_reason) {
   
   # determine the first and last date entry of each region
   first_date_tibble_entry <- 
@@ -107,7 +99,7 @@ create_FY_authority <- function(xl_file, sheet_name, delay_reason) {
     summarise(counts= sum(obd), .groups = "drop") %>% 
    split(.$geog)
 
- map2(tmp_list, names(tmp_list), fill_missing_dates) 
+ map2_df(tmp_list, names(tmp_list), ~fill_missing_dates(.x, .y, delay_reason)) 
 }
 
 
@@ -130,8 +122,8 @@ create_FY_authority_187475plus <- function(xl_file, sheet_name, delay_reason) {
 create_main_tibble <- function(obj1, obj2) {
   bind_rows(obj1, obj2) %>% 
     filter(fin_yr != "2016/17") %>% 
-    rename(dates = month) %>% 
-    mutate(year = year(dates), months = month(dates)) %>%
+    rename(months = month) %>% 
+    mutate(year = year(months), months = month(months)) %>%
     mutate(geog = str_replace_all(geog, "NHS ", "")) %>% #removes NHS in geog field
     mutate(GGC_Region = if_else(geog %in% CA_no_Scotland, TRUE, FALSE)) %>% 
     mutate(fin_yr = factor(fin_yr, labels = create_fctorder_finyr(.), ordered = TRUE))  %>% 
@@ -1062,4 +1054,5 @@ min_max_5yr_avg <- function() {
   list(min_FY, max_FY)
 
 }
+
 

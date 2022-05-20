@@ -100,7 +100,7 @@ LA_pop_18plus <- getLAPops(age_lowest = 18)
 
 ```
 
-```{r convert-to-tibbles}
+```{r convert-to-tibbles, message=FALSE}
 # Excel data files names
 code9_xl_name <- here::here("data", glue("code9.xlsx"))
 
@@ -108,17 +108,17 @@ standard_xl_name <- here::here("data", glue("standard.xlsx"))
 
 # <create_FY_authority> function extracts relevant data from NRS excel sheet and stores
 # as a tibble.
-
+code9_obj <- create_FY_authority(xl_file = code9_xl_name, sheet_name = "data", delay_reason = "All code 9 delay reasons")
 #  The age_groups 18-74 and 75+ are aggregated to produce results for 18+ population.
 #  Within the Excel files, some 18+ age_group rows for Scotland are missing
-code9_187475plus_obj <- create_FY_authority_187475plus(xl_file = code9_xl_name, sheet_name = "data", delay_reason = "All code 9 delay reasons")
 
-standard_187475plus_ojb <- create_FY_authority_187475plus(xl_file = standard_xl_name, sheet_name = "data_1", delay_reason = "All standard")
+
+standard_ojb <- create_FY_authority(xl_file = standard_xl_name, sheet_name = "data_1", delay_reason = "All standard")
 # Create a common tibble containing both "standard"" and "code9" <delay reasons> 
 
 # excludes FY 2016/17 and 2020/21
 
-df_main <- create_main_tibble(code9_187475plus_obj, standard_187475plus_ojb) 
+df_main <- create_main_tibble(code9_obj, standard_ojb) 
 
 # current_fy used for header outputs
 current_fy <- as.character(select_current_fy(df_main)) 
@@ -355,15 +355,15 @@ list_t[[count]] <- do.call(plot_table_func_list[2], arglist_i)
 ### `r params$Report_month`
 
 ```{r}
-create_CArate_plot(code9_mon[[3]], delay_reason = delay_reasons_list[[2]],  mon = params$Report_month, FYTD_flag = FALSE,
-                   g_rate = code9_mon[[2]], s_rate = code9_mon[[1]]) 
+create_CArate_plot(standard_mon[[3]], delay_reason = delay_reasons_list[[2]],  mon = params$Report_month, FYTD_flag = FALSE,
+                   g_rate = standard_mon[[2]], s_rate = standard_mon[[1]]) 
 
 ```
 
 ### FY to Date
 
 ```{r}
-create_CArate_plot(code9_fytd[[3]], delay_reason = delay_reasons_list[[2]],  mon = params$Report_month, FYTD_flag = TRUE, g_rate = code9_fytd[[2]], s_rate = code9_fytd[[1]]) 
+create_CArate_plot(standard_fytd[[3]], delay_reason = delay_reasons_list[[2]],  mon = params$Report_month, FYTD_flag = TRUE, g_rate = standard_fytd[[2]], s_rate = standard_fytd[[1]]) 
 
 ```
 
