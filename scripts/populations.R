@@ -27,10 +27,16 @@ getLAPops <- function(age_lowest = 0){
     bind_rows(pops) 
   
  # as mid-2021 doesn't yet exist, copy mid 2020 pop and rename it as year 2021
-   pops %>% 
+   pops <- pops %>% 
      filter(year == 2020) %>% #isolate year 2020
       mutate(year = 2021) %>% # rename values 2021
-      bind_rows(pops) %>% 
+      bind_rows(pops) %>%
+      mutate(year = as.integer(year))
+   
+   pops <- pops %>% 
+     filter(year == 2021) %>% #isolate year 2020
+     mutate(year = 2022) %>% # rename values 2021
+     bind_rows(pops) %>%
      mutate(year = as.integer(year))
    
    

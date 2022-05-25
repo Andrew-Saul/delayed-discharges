@@ -96,7 +96,7 @@ LA_pop_18plus <- getLAPops(age_lowest = 18)
 ```{r download-NRS-recent-data}
 
 #downloading two excel files that contain standard and code9 delays respectively
-#download_data(month=params$Report_month, year=params$Report_year)
+download_data(month=params$Report_month, year=params$Report_year)
 
 ```
 
@@ -120,39 +120,27 @@ standard_ojb <- create_FY_authority(xl_file = standard_xl_name, sheet_name = "da
 
 df_main <- create_main_tibble(code9_obj, standard_ojb) 
 
-# current_fy used for header outputs
+# current_fy used for table header outputs
 current_fy <- as.character(select_current_fy(df_main)) 
 
 #check that no NA obd values are present.  Send message if obd NAs are present
 # and remove inaccurate df_main tibble from environment to cause knitr to error
 if(count(df_main %>% filter(is.na(counts)))>0){
   rm(df_main)
-  stop("There are missing obd values in the dataset.  Please recheck")
+  stop("There are NA count values in the dataset.  Please recheck")
   
 } 
 
-# calender_months <- c("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
-# 
-# #selects numeric value of month as per calender_months
-#   month_int <- 
-#     match(params$Report_month, calender_months) 
 ```
 
 
 ```{r historicalrates}
 
 # <rates_permonth> function: 
-# 1st list: tibble of last 7yr rates
-# 2nd list: FYear column for prev 5yr data (excluding current year) - for plot and table functions
-#           auto calculates min and max financial years for prev 5 years of data
-#     
-# 3rd list : FYear of all data.  Calcs current year, for use as row heading in table function
+# 1st list: tibble containing data from "earliest_historical_fy" until current year 
+# 2nd list: Names of fin_yrs comprising data in list 1
 
 rates_permonth <- get_rates_years_of_interest(df_main, delay_reasons_list, CA_of_interest)
-
-
-
-
 
 #create empty list to accept plots and tables
 list_p <- vector(mode = "list", length = length(CA_of_interest))
@@ -227,9 +215,9 @@ fytd_code9_app <- create_appendix(tib =df_main, delay_reason = delay_reasons_lis
 
 mon_code9_app <- create_appendix(tib =df_main, delay_reason = delay_reasons_list[1], mon = params$Report_month, FYTD_flag = FALSE)
 
-fytd_standard_app <- create_appendix(tib =df_main, delay_reason = delay_reasons_list[1], mon = params$Report_month, FYTD_flag = TRUE)
+fytd_standard_app <- create_appendix(tib =df_main, delay_reason = delay_reasons_list[2], mon = params$Report_month, FYTD_flag = TRUE)
 
-mon_standard_app <- create_appendix(tib =df_main, delay_reason = delay_reasons_list[1], mon = params$Report_month, FYTD_flag = FALSE)
+mon_standard_app <- create_appendix(tib =df_main, delay_reason = delay_reasons_list[2], mon = params$Report_month, FYTD_flag = FALSE)
 ```
 
 ## Code 9 Delays {.tabset}
@@ -455,5 +443,5 @@ create_appendix1(tib=fytd_standard_app, title_name = "**HSCP Rankings for Financ
 
 ### Appendix 2: HSCP Rankings for `r params$Report_month` `r params$Report_year`
 ```{r}
-create_appendix2(tib=mon_code9_app, title_name = "**Appendix 2: HSCP Rankings for {params$Report_month} {params$Report_year}**")
+create_appendix2(tib=mon_standard_app, title_name = "**Appendix 2: HSCP Rankings for {params$Report_month} {params$Report_year}**")
 ```
