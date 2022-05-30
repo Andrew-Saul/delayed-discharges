@@ -1,4 +1,3 @@
-
 # Scripts to download excel data files from NRS --------------------------------------------------------
 
 scraplinks <- function(month, year){

@@ -177,7 +177,7 @@ standard_fytd <- create_bedrate_list(tib=df_main, delay_reason = delay_reasons_l
 # Combines pc_change with previous time point and with last 5 yr Avg
 
 # tables arranged by rank
-# Code 9
+# Code 9 
 ##  fytd rate and changes ordered by rank
 fytd_code9_rate_changes <- get_summary_table(tib=df_main, mon = params$Report_month, delay_reason = "All code 9 delay reasons", FYTD_flag = TRUE) %>% 
   arrange(Rank) %>% 
